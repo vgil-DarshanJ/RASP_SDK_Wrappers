@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:rasp_shield/sdk/detectors/rasp_native_channel.dart';
 import 'package:rasp_shield/sdk/lean_session.dart';
 
 /// Config contract for the detectors added in Tasks 3a-3c: every flag is off
@@ -30,6 +31,46 @@ void main() {
     expect(on['unsafeWifiDetection'], isTrue);
     expect(on['screenRecordingDetection'], isTrue);
     expect(on['serverTimeMillis'], 1790000000000);
+  });
+
+  test('Task 3b flags default off and map to native keys', () {
+    final offMap = const RaspLeanConfig().toNativeMap();
+    for (final key in const [
+      'vishingCallDetection',
+      'simChangeDetection',
+      'thirdPartyKeyboardDetection',
+      'taskHijackDetection',
+    ]) {
+      expect(offMap[key], isFalse, reason: key);
+    }
+    expect(offMap['trustedKeyboardPackages'], isEmpty);
+
+    final on = const RaspLeanConfig(
+      vishingCallDetection: true,
+      simChangeDetection: true,
+      thirdPartyKeyboardDetection: true,
+      taskHijackDetection: true,
+      trustedKeyboardPackages: ['com.vendor.keyboard'],
+    ).toNativeMap();
+    expect(on['vishingCallDetection'], isTrue);
+    expect(on['simChangeDetection'], isTrue);
+    expect(on['thirdPartyKeyboardDetection'], isTrue);
+    expect(on['taskHijackDetection'], isTrue);
+    expect(on['trustedKeyboardPackages'], ['com.vendor.keyboard']);
+  });
+
+  test('isCallActive and acknowledgeSimChange call the native methods', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final calls = <String>[];
+    RaspNativeChannel.testInvokeHandler = (method, arguments) async {
+      calls.add(method);
+      return method == 'isCallActive' ? true : false;
+    };
+    addTearDown(() => RaspNativeChannel.testInvokeHandler = null);
+
+    expect(await RaspLeanSession.isCallActive(), isTrue);
+    expect(await RaspLeanSession.acknowledgeSimChange(), isFalse);
+    expect(calls, ['isCallActive', 'acknowledgeSimChange']);
   });
 
   test('location snapshot carries the mock flag', () {

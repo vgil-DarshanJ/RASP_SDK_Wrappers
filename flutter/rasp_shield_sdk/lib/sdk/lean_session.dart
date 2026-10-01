@@ -70,6 +70,13 @@ class RaspLeanConfig {
 
   /// Optional trusted server time for `time_spoofing`; anchored when the session starts.
   final DateTime? serverTime;
+  final bool vishingCallDetection;
+  final bool simChangeDetection;
+  final bool thirdPartyKeyboardDetection;
+  final bool taskHijackDetection;
+
+  /// Extra keyboard packages trusted when installed from Google Play (Gboard is built in).
+  final List<String> trustedKeyboardPackages;
   /// Enable Evidence Envelope path (device-key signed, replay-resistant) instead of legacy HMAC. Default off.
   final bool useEvidenceEnvelope;
   final Duration pollInterval;
@@ -110,6 +117,11 @@ class RaspLeanConfig {
     this.unsafeWifiDetection = false,
     this.screenRecordingDetection = false,
     this.serverTime,
+    this.vishingCallDetection = false,
+    this.simChangeDetection = false,
+    this.thirdPartyKeyboardDetection = false,
+    this.taskHijackDetection = false,
+    this.trustedKeyboardPackages = const [],
     this.useEvidenceEnvelope = false,
     this.pollInterval = const Duration(seconds: 4),
     this.heartbeatInterval = const Duration(seconds: 20),
@@ -150,6 +162,11 @@ class RaspLeanConfig {
         'unsafeWifiDetection': unsafeWifiDetection,
         'screenRecordingDetection': screenRecordingDetection,
         'serverTimeMillis': serverTime?.millisecondsSinceEpoch,
+        'vishingCallDetection': vishingCallDetection,
+        'simChangeDetection': simChangeDetection,
+        'thirdPartyKeyboardDetection': thirdPartyKeyboardDetection,
+        'taskHijackDetection': taskHijackDetection,
+        'trustedKeyboardPackages': trustedKeyboardPackages,
         'useEvidenceEnvelope': useEvidenceEnvelope,
         'pollIntervalMillis': pollInterval.inMilliseconds,
         'heartbeatIntervalMillis': heartbeatInterval.inMilliseconds,
@@ -216,6 +233,16 @@ class RaspLeanSession {
       await RaspNativeChannel.boolCall('setLeanSessionServerTime', serverTime.millisecondsSinceEpoch);
     }
   }
+
+  /// For payment/transfer screens: `true` while a phone call is ringing or in
+  /// progress, `false` when there is none, `null` when it cannot be told
+  /// (READ_PHONE_STATE not granted). Works without a running session.
+  static Future<bool?> isCallActive() => RaspNativeChannel.boolCall('isCallActive');
+
+  /// Accepts the current SIMs after `sim_change` reported a change (e.g. once
+  /// the customer has been re-verified). Returns `false` if nothing was pending.
+  static Future<bool> acknowledgeSimChange() async =>
+      await RaspNativeChannel.boolCall('acknowledgeSimChange') ?? false;
 
   static Future<RaspLeanSession> start(RaspLeanConfig config) async {
     final session = RaspLeanSession._(config);
@@ -329,6 +356,10 @@ class RaspLeanSession {
         'time_spoofing' => const _Descriptor(DetectorType.timeSpoof, ThreatCategory.deviceIntegrity, DetectionSeverity.medium, 'Time Spoofing'),
         'unsafe_wifi' => const _Descriptor(DetectorType.custom, ThreatCategory.networkSecurity, DetectionSeverity.medium, 'Unsafe Wi-Fi'),
         'screen_recording' => const _Descriptor(DetectorType.screenshot, ThreatCategory.privacyScreen, DetectionSeverity.high, 'Screen Recording'),
+        'vishing_call' => const _Descriptor(DetectorType.custom, ThreatCategory.privacyScreen, DetectionSeverity.high, 'Call During App Use'),
+        'sim_change' => const _Descriptor(DetectorType.custom, ThreatCategory.deviceIntegrity, DetectionSeverity.high, 'SIM Change'),
+        'third_party_keyboard' => const _Descriptor(DetectorType.custom, ThreatCategory.privacyScreen, DetectionSeverity.medium, 'Third-party Keyboard'),
+        'task_hijack' => const _Descriptor(DetectorType.custom, ThreatCategory.appIntegrity, DetectionSeverity.high, 'Task Hijacking'),
         _ => const _Descriptor(DetectorType.custom, ThreatCategory.other, DetectionSeverity.medium, 'Security Check'),
       };
 

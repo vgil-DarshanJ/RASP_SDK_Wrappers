@@ -187,6 +187,16 @@ internal class RaspSecurityChannelHandler(
                     result.success(leanSession != null)
                 }
             }
+            "isCallActive" -> {
+                result.success(RaspShieldCore.isCallActive(applicationContext))
+            }
+            "acknowledgeSimChange" -> {
+                // EncryptedSharedPreferences I/O: off the main thread.
+                Thread {
+                    val ok = RaspShieldCore.acknowledgeSimChange(applicationContext)
+                    mainHandler.post { result.success(ok) }
+                }.start()
+            }
             "setLeanSessionServerTime" -> {
                 val serverTime = (call.arguments as? Number)?.toLong()
                 if (serverTime == null) {
@@ -1537,6 +1547,12 @@ internal class RaspSecurityChannelHandler(
             unsafeWifiDetection = enabled("unsafeWifiDetection"),
             screenRecordingDetection = enabled("screenRecordingDetection"),
             serverTimeMillis = (values["serverTimeMillis"] as? Number)?.toLong(),
+            vishingCallDetection = enabled("vishingCallDetection"),
+            simChangeDetection = enabled("simChangeDetection"),
+            thirdPartyKeyboardDetection = enabled("thirdPartyKeyboardDetection"),
+            taskHijackDetection = enabled("taskHijackDetection"),
+            trustedKeyboardPackages = (values["trustedKeyboardPackages"] as? List<*>)
+                ?.filterIsInstance<String>() ?: emptyList(),
             useEvidenceEnvelope = enabled("useEvidenceEnvelope"),
             pollIntervalMillis = millis("pollIntervalMillis", 4_000),
             heartbeatIntervalMillis = millis("heartbeatIntervalMillis", 20_000),
