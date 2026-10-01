@@ -1,0 +1,132 @@
+// RASP Shield — React Native Android module.
+//
+// Holds NO detection logic of its own. Every detector lives in android_core
+// (com.github.Vedant0Nisar:RaShield-SDK, published via JitPack) — the exact
+// same engine the Flutter plugin and the Android Native SDK depend on, so a
+// fix lands once and reaches all three SDKs identically.
+//
+// Supports both React Native architectures:
+//   - New Architecture (TurboModule, codegen from src/specs/NativeRaspShield.ts)
+//   - Old Architecture (bridge module, hand-written spec in src/oldarch)
+// selected by the host app's `newArchEnabled` Gradle property.
+
+buildscript {
+    def kotlinVersion = rootProject.ext.has("kotlinVersion") ? rootProject.ext.get("kotlinVersion") : "2.1.20"
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
+    }
+}
+
+def getExtOrDefault(name, defaultValue) {
+    return rootProject.ext.has(name) ? rootProject.ext.get(name) : defaultValue
+}
+
+def isNewArchitectureEnabled() {
+    return project.hasProperty("newArchEnabled") && project.newArchEnabled == "true"
+}
+
+def agpMajorVersion() {
+    return com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION.tokenize('.')[0].toInteger()
+}
+
+apply plugin: "com.android.library"
+
+// AGP 9 compiles Kotlin itself unless `android.builtInKotlin=false`; older
+// AGP (and AGP 9 with that flag off, as in the RN 0.8x app template) needs
+// the standalone Kotlin Android plugin.
+def shouldApplyKotlinPlugin() {
+    if (agpMajorVersion() <= 8) return true
+    def builtIn = providers.gradleProperty("android.builtInKotlin").orNull
+    return builtIn != null && !builtIn.toBoolean()
+}
+
+if (shouldApplyKotlinPlugin()) {
+    apply plugin: "kotlin-android"
+}
+
+if (isNewArchitectureEnabled()) {
+    apply plugin: "com.facebook.react"
+}
+
+android {
+    namespace "com.shieldsdk.rasp.reactnative"
+    compileSdkVersion getExtOrDefault("compileSdkVersion", 35)
+
+    defaultConfig {
+        // android_core's own floor. RN 0.76+ apps already require 24.
+        minSdkVersion Math.max(23, getExtOrDefault("minSdkVersion", 24) as int)
+        targetSdkVersion getExtOrDefault("targetSdkVersion", 35)
+        buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString()
+        consumerProguardFiles "consumer-rules.pro"
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lintOptions {
+        abortOnError false
+    }
+
+    sourceSets.main {
+        def archDir = isNewArchitectureEnabled() ? "src/newarch/java" : "src/oldarch/java"
+        if (agpMajorVersion() >= 9) {
+            java.directories.add(archDir)
+            if (isNewArchitectureEnabled()) {
+                java.directories.add("${project.buildDir}/generated/source/codegen/java")
+            }
+        } else {
+            java.srcDirs += [archDir]
+            if (isNewArchitectureEnabled()) {
+                java.srcDirs += ["${project.buildDir}/generated/source/codegen/java"]
+            }
+        }
+    }
+}
+
+if (shouldApplyKotlinPlugin()) {
+    kotlin {
+        jvmToolchain(17)
+    }
+}
+
+// android_core is published on JitPack. A Gradle project dependency's
+// external modules are resolved with the CONSUMING project's repositories,
+// so the host app needs JitPack too — added here for every project, so a
+// standard React Native app needs no manual Gradle edit. (Apps that forbid
+// project-level repositories via FAIL_ON_PROJECT_REPOS must add it to
+// settings.gradle themselves — see README.md.)
+rootProject.allprojects { p ->
+    p.repositories {
+        maven {
+            url "https://jitpack.io"
+            content { includeGroup "com.github.Vedant0Nisar" }
+        }
+    }
+}
+
+repositories {
+    google()
+    mavenCentral()
+    maven {
+        url "https://jitpack.io"
+        content { includeGroup "com.github.Vedant0Nisar" }
+    }
+}
+
+dependencies {
+    implementation "com.facebook.react:react-android"
+    // The shared detection engine — root/Frida/hook/tamper/MITM/overlay and
+    // every other detector, plus the HMAC-signed event shipper. `api` so an
+    // app can also call com.shieldsdk.rasp.* directly from its own Kotlin.
+    api "com.github.Vedant0Nisar:RaShield-SDK:v1.0.5"
+}

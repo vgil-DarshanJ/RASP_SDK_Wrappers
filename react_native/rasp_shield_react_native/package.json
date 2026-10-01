@@ -1,0 +1,66 @@
+{
+  "name": "rasp-shield-react-native",
+  "version": "1.0.0",
+  "description": "RASP Shield — runtime application self-protection for React Native. Same 29-detector catalog, same 5-state result contract and same signed event shipping as the Flutter and Android Native SDKs, backed by the shared android_core detection engine.",
+  "license": "SEE LICENSE IN LICENSE",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "react-native": "src/index.ts",
+  "source": "src/index.ts",
+  "files": [
+    "src",
+    "lib",
+    "android",
+    "react-native.config.js",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "!**/__tests__",
+    "!android/build",
+    "!android/.gradle",
+    "!android/.cxx"
+  ],
+  "scripts": {
+    "build": "node scripts/sync-shared-session.js && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node scripts/sync-shared-session.js --check && jest",
+    "sync:session": "node scripts/sync-shared-session.js",
+    "prepack": "npm run build"
+  },
+  "keywords": [
+    "react-native",
+    "rasp",
+    "security",
+    "root-detection",
+    "frida",
+    "tamper-detection",
+    "banking"
+  ],
+  "peerDependencies": {
+    "react": "*",
+    "react-native": ">=0.76.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/react": "^19.1.0",
+    "jest": "^29.7.0",
+    "react": "19.1.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.6.3"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "roots": [
+      "<rootDir>/src"
+    ]
+  },
+  "codegenConfig": {
+    "name": "RNRaspShieldSpec",
+    "type": "modules",
+    "jsSrcsDir": "src/specs",
+    "android": {
+      "javaPackageName": "com.shieldsdk.rasp.reactnative"
+    }
+  }
+}

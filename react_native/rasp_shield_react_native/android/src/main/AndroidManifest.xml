@@ -1,0 +1,4 @@
+<!-- No permissions or components of its own. android_core's manifest
+     (INTERNET + the curated <queries> package list the risky-app and
+     reverse-engineering-tools detectors need) merges in automatically. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" />

@@ -1,0 +1,24 @@
+<!-- No `package=` attribute here on purpose — AGP now requires the
+     namespace to come exclusively from build.gradle.kts's `android.namespace`
+     ("com.shieldsdk.rasp.plugin"), and rejects a manifest `package=` that
+     disagrees with it. This does not affect where any Kotlin class in this
+     module lives (still `package com.shieldsdk.rasp`, unchanged). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Package-visibility exemption (API 30+) for the curated risky-app
+         evidence check (RaspSecurityChannelHandler.riskyAppEvidence()) —
+         each package here is checked ONLY for presence via
+         PackageManager.getPackageInfo(); this is not a bulk installed-apps
+         query and resolves no other package. Merges automatically into any
+         host app that depends on this plugin — no host manifest edit
+         needed. -->
+    <queries>
+        <package android:name="com.teamviewer.quicksupport.market"/>
+        <package android:name="com.teamviewer.host.market"/>
+        <package android:name="com.anydesk.anydeskandroid"/>
+        <package android:name="com.rsupport.mobizen.remote"/>
+        <package android:name="com.remotepc.rpcmobile"/>
+        <package android:name="de.robv.android.xposed"/>
+        <package android:name="com.saurik.substrate"/>
+    </queries>
+</manifest>

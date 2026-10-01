@@ -1,0 +1,10 @@
+build/
+.dart_tool/
+.gradle/
+.kotlin/
+.cxx/
+node_modules/
+local.properties
+*.iml
+.idea/
+*.hprof

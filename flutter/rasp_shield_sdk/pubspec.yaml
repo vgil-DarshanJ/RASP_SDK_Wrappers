@@ -1,0 +1,52 @@
+name: rasp_shield
+description: >
+  RASP Shield SDK — runtime application self-protection. Real native
+  Android detectors (root, emulator, Frida, debugger, hook, tamper,
+  Play Integrity, device binding) registered by this plugin itself; the
+  host app requires no manual Kotlin or MethodChannel wiring.
+version: 1.1.0-local
+homepage:
+
+environment:
+  sdk: ^3.11.5
+  flutter: '>=3.3.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # NOT safe_device: its own Android manifest declares
+  # ACCESS_FINE_LOCATION/ACCESS_COARSE_LOCATION unconditionally, taxing
+  # every Android customer for a capability only the iOS fallback path
+  # uses (Android already has real native root/emulator detection). See
+  # detectors/ios_fallback.dart — a host app that wants that iOS fallback
+  # registers its own IosFallbackDetector (rasp_app's is still backed by
+  # safe_device, in its own pubspec.yaml, not this SDK's).
+  device_info_plus: ^10.1.0
+  dio: ^5.7.0
+  flutter_secure_storage: ^9.2.2
+  package_info_plus: ^8.1.0
+  crypto: ^3.0.6
+  # Kept: needs no runtime permission and no battery/location API — see
+  # LocationManager's own doc for what this SDK does and does not use it for.
+  connectivity_plus: ^6.0.3
+  uuid: ^4.5.3
+  shared_preferences: ^2.2.3
+  cryptography: ^2.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+# This section identifies this Flutter project as a plugin project.
+# The Android 'package'/'pluginClass' below is the ONLY registration this
+# SDK needs: Flutter's flutter-plugin-loader auto-includes this module and
+# instantiates RaspShieldPlugin in any consuming app's Gradle build — no
+# settings.gradle edit, no MainActivity edit, no manual MethodChannel setup
+# in the host app.
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.shieldsdk.rasp
+        pluginClass: RaspShieldPlugin

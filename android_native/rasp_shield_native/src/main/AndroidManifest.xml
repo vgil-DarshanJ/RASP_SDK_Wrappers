@@ -1,0 +1,9 @@
+<!-- No `package=` attribute here on purpose — AGP now requires the
+     namespace to come exclusively from build.gradle.kts's `android.namespace`
+     ("com.shieldsdk.rasp.nativeshield") and rejects a manifest `package=`
+     outright. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- No permissions, no <queries>, no components. This module only
+         reads standard system services (Window, UsbManager, ClipboardManager,
+         Settings.Global) that require no manifest declaration. -->
+</manifest>
