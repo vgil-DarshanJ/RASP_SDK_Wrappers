@@ -182,7 +182,17 @@ internal class RaspSecurityChannelHandler(
                         accuracyMeters = (args["accuracyMeters"] as? Number)?.toDouble(),
                         capturedAtMillis = (args["capturedAtMillis"] as? Number)?.toLong()
                             ?: System.currentTimeMillis(),
+                        isMock = args["isMock"] as? Boolean,
                     )
+                    result.success(leanSession != null)
+                }
+            }
+            "setLeanSessionServerTime" -> {
+                val serverTime = (call.arguments as? Number)?.toLong()
+                if (serverTime == null) {
+                    result.success(false)
+                } else {
+                    leanSession?.setServerTime(serverTime)
                     result.success(leanSession != null)
                 }
             }
@@ -1522,6 +1532,11 @@ internal class RaspSecurityChannelHandler(
             accessibilityDetection = enabled("accessibilityDetection"),
             externalDisplayDetection = enabled("externalDisplayDetection"),
             screenshotEventDetection = enabled("screenshotEventDetection"),
+            mockLocationDetection = enabled("mockLocationDetection"),
+            timeSpoofingDetection = enabled("timeSpoofingDetection"),
+            unsafeWifiDetection = enabled("unsafeWifiDetection"),
+            screenRecordingDetection = enabled("screenRecordingDetection"),
+            serverTimeMillis = (values["serverTimeMillis"] as? Number)?.toLong(),
             useEvidenceEnvelope = enabled("useEvidenceEnvelope"),
             pollIntervalMillis = millis("pollIntervalMillis", 4_000),
             heartbeatIntervalMillis = millis("heartbeatIntervalMillis", 20_000),

@@ -19,11 +19,16 @@ class RaspLocationSnapshot {
   final double? accuracyMeters;
   final DateTime capturedAt;
 
+  /// The fix's own mock flag when known (geolocator `Position.isMocked`);
+  /// `null` when unknown. Used by `mock_location`.
+  final bool? isMock;
+
   const RaspLocationSnapshot({
     required this.latitude,
     required this.longitude,
     this.accuracyMeters,
     required this.capturedAt,
+    this.isMock,
   });
 }
 
@@ -58,6 +63,13 @@ class RaspLeanConfig {
   final bool accessibilityDetection;
   final bool externalDisplayDetection;
   final bool screenshotEventDetection;
+  final bool mockLocationDetection;
+  final bool timeSpoofingDetection;
+  final bool unsafeWifiDetection;
+  final bool screenRecordingDetection;
+
+  /// Optional trusted server time for `time_spoofing`; anchored when the session starts.
+  final DateTime? serverTime;
   /// Enable Evidence Envelope path (device-key signed, replay-resistant) instead of legacy HMAC. Default off.
   final bool useEvidenceEnvelope;
   final Duration pollInterval;
@@ -93,6 +105,11 @@ class RaspLeanConfig {
     this.accessibilityDetection = false,
     this.externalDisplayDetection = false,
     this.screenshotEventDetection = false,
+    this.mockLocationDetection = false,
+    this.timeSpoofingDetection = false,
+    this.unsafeWifiDetection = false,
+    this.screenRecordingDetection = false,
+    this.serverTime,
     this.useEvidenceEnvelope = false,
     this.pollInterval = const Duration(seconds: 4),
     this.heartbeatInterval = const Duration(seconds: 20),
@@ -128,6 +145,11 @@ class RaspLeanConfig {
         'accessibilityDetection': accessibilityDetection,
         'externalDisplayDetection': externalDisplayDetection,
         'screenshotEventDetection': screenshotEventDetection,
+        'mockLocationDetection': mockLocationDetection,
+        'timeSpoofingDetection': timeSpoofingDetection,
+        'unsafeWifiDetection': unsafeWifiDetection,
+        'screenRecordingDetection': screenRecordingDetection,
+        'serverTimeMillis': serverTime?.millisecondsSinceEpoch,
         'useEvidenceEnvelope': useEvidenceEnvelope,
         'pollIntervalMillis': pollInterval.inMilliseconds,
         'heartbeatIntervalMillis': heartbeatInterval.inMilliseconds,
@@ -183,7 +205,16 @@ class RaspLeanSession {
       'longitude': value.longitude,
       'accuracyMeters': value.accuracyMeters,
       'capturedAtMillis': value.capturedAt.millisecondsSinceEpoch,
+      'isMock': value.isMock,
     }));
+  }
+
+  /// Supplies a trusted server time (e.g. from an HTTP `Date` header) for
+  /// `time_spoofing`.
+  Future<void> setServerTime(DateTime serverTime) async {
+    if (!_disposed) {
+      await RaspNativeChannel.boolCall('setLeanSessionServerTime', serverTime.millisecondsSinceEpoch);
+    }
   }
 
   static Future<RaspLeanSession> start(RaspLeanConfig config) async {
@@ -294,6 +325,10 @@ class RaspLeanSession {
         'overlay' => const _Descriptor(DetectorType.overlay, ThreatCategory.privacyScreen, DetectionSeverity.high, 'Overlay'),
         'accessibility' => const _Descriptor(DetectorType.accessibility, ThreatCategory.privacyScreen, DetectionSeverity.high, 'Accessibility Abuse'),
         'screenshot_event' => const _Descriptor(DetectorType.screenshot, ThreatCategory.privacyScreen, DetectionSeverity.medium, 'Screenshot Event'),
+        'mock_location' => const _Descriptor(DetectorType.locationSpoof, ThreatCategory.locationIntegrity, DetectionSeverity.high, 'Mock Location'),
+        'time_spoofing' => const _Descriptor(DetectorType.timeSpoof, ThreatCategory.deviceIntegrity, DetectionSeverity.medium, 'Time Spoofing'),
+        'unsafe_wifi' => const _Descriptor(DetectorType.custom, ThreatCategory.networkSecurity, DetectionSeverity.medium, 'Unsafe Wi-Fi'),
+        'screen_recording' => const _Descriptor(DetectorType.screenshot, ThreatCategory.privacyScreen, DetectionSeverity.high, 'Screen Recording'),
         _ => const _Descriptor(DetectorType.custom, ThreatCategory.other, DetectionSeverity.medium, 'Security Check'),
       };
 
