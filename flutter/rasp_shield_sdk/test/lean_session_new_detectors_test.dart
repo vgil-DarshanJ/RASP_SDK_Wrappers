@@ -59,6 +59,28 @@ void main() {
     expect(on['trustedKeyboardPackages'], ['com.vendor.keyboard']);
   });
 
+  test('Task 3c flags default off and map to native keys', () {
+    final offMap = const RaspLeanConfig().toNativeMap();
+    expect(offMap['deviceStateAttestationDetection'], isFalse);
+    expect(offMap['malwareReputationDetection'], isFalse);
+    expect(offMap['maxSecurityPatchAgeDays'], isNull);
+    expect(offMap['malwareReputationListJson'], isNull);
+    expect(offMap['malwareReputationPublicKey'], isNull);
+
+    final on = const RaspLeanConfig(
+      deviceStateAttestationDetection: true,
+      maxSecurityPatchAgeDays: 120,
+      malwareReputationDetection: true,
+      malwareReputationListJson: '{"payload":"{}","signature":"x"}',
+      malwareReputationPublicKey: 'MCowBQYDK2VwAyEA',
+    ).toNativeMap();
+    expect(on['deviceStateAttestationDetection'], isTrue);
+    expect(on['maxSecurityPatchAgeDays'], 120);
+    expect(on['malwareReputationDetection'], isTrue);
+    expect(on['malwareReputationListJson'], '{"payload":"{}","signature":"x"}');
+    expect(on['malwareReputationPublicKey'], 'MCowBQYDK2VwAyEA');
+  });
+
   test('isCallActive and acknowledgeSimChange call the native methods', () async {
     TestWidgetsFlutterBinding.ensureInitialized();
     final calls = <String>[];

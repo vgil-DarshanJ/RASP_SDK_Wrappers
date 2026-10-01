@@ -77,6 +77,17 @@ class RaspLeanConfig {
 
   /// Extra keyboard packages trusted when installed from Google Play (Gboard is built in).
   final List<String> trustedKeyboardPackages;
+  final bool deviceStateAttestationDetection;
+
+  /// Report `patch_too_old` when the attested OS patch is older than this; `null` = off.
+  final int? maxSecurityPatchAgeDays;
+  final bool malwareReputationDetection;
+
+  /// Signed reputation list JSON (e.g. `await rootBundle.loadString(...)`).
+  final String? malwareReputationListJson;
+
+  /// Ed25519 public key that signs the list (Base64, raw 32 bytes or SPKI).
+  final String? malwareReputationPublicKey;
   /// Enable Evidence Envelope path (device-key signed, replay-resistant) instead of legacy HMAC. Default off.
   final bool useEvidenceEnvelope;
   final Duration pollInterval;
@@ -122,6 +133,11 @@ class RaspLeanConfig {
     this.thirdPartyKeyboardDetection = false,
     this.taskHijackDetection = false,
     this.trustedKeyboardPackages = const [],
+    this.deviceStateAttestationDetection = false,
+    this.maxSecurityPatchAgeDays,
+    this.malwareReputationDetection = false,
+    this.malwareReputationListJson,
+    this.malwareReputationPublicKey,
     this.useEvidenceEnvelope = false,
     this.pollInterval = const Duration(seconds: 4),
     this.heartbeatInterval = const Duration(seconds: 20),
@@ -167,6 +183,11 @@ class RaspLeanConfig {
         'thirdPartyKeyboardDetection': thirdPartyKeyboardDetection,
         'taskHijackDetection': taskHijackDetection,
         'trustedKeyboardPackages': trustedKeyboardPackages,
+        'deviceStateAttestationDetection': deviceStateAttestationDetection,
+        'maxSecurityPatchAgeDays': maxSecurityPatchAgeDays,
+        'malwareReputationDetection': malwareReputationDetection,
+        'malwareReputationListJson': malwareReputationListJson,
+        'malwareReputationPublicKey': malwareReputationPublicKey,
         'useEvidenceEnvelope': useEvidenceEnvelope,
         'pollIntervalMillis': pollInterval.inMilliseconds,
         'heartbeatIntervalMillis': heartbeatInterval.inMilliseconds,
@@ -360,6 +381,8 @@ class RaspLeanSession {
         'sim_change' => const _Descriptor(DetectorType.custom, ThreatCategory.deviceIntegrity, DetectionSeverity.high, 'SIM Change'),
         'third_party_keyboard' => const _Descriptor(DetectorType.custom, ThreatCategory.privacyScreen, DetectionSeverity.medium, 'Third-party Keyboard'),
         'task_hijack' => const _Descriptor(DetectorType.custom, ThreatCategory.appIntegrity, DetectionSeverity.high, 'Task Hijacking'),
+        'device_state_attestation' => const _Descriptor(DetectorType.custom, ThreatCategory.deviceIntegrity, DetectionSeverity.high, 'Device State Attestation'),
+        'malware_reputation' => const _Descriptor(DetectorType.riskyApp, ThreatCategory.appIntegrity, DetectionSeverity.critical, 'Known Malware Installed'),
         _ => const _Descriptor(DetectorType.custom, ThreatCategory.other, DetectionSeverity.medium, 'Security Check'),
       };
 

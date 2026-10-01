@@ -1553,6 +1553,11 @@ internal class RaspSecurityChannelHandler(
             taskHijackDetection = enabled("taskHijackDetection"),
             trustedKeyboardPackages = (values["trustedKeyboardPackages"] as? List<*>)
                 ?.filterIsInstance<String>() ?: emptyList(),
+            deviceStateAttestationDetection = enabled("deviceStateAttestationDetection"),
+            maxSecurityPatchAgeDays = (values["maxSecurityPatchAgeDays"] as? Number)?.toInt(),
+            malwareReputationDetection = enabled("malwareReputationDetection"),
+            malwareReputationListJson = values["malwareReputationListJson"] as? String,
+            malwareReputationPublicKey = values["malwareReputationPublicKey"] as? String,
             useEvidenceEnvelope = enabled("useEvidenceEnvelope"),
             pollIntervalMillis = millis("pollIntervalMillis", 4_000),
             heartbeatIntervalMillis = millis("heartbeatIntervalMillis", 20_000),
