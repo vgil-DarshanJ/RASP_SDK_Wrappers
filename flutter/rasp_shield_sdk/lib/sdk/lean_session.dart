@@ -298,12 +298,19 @@ class RaspLeanSession {
   static Future<bool> resetSimBaseline() async =>
       await RaspNativeChannel.boolCall('resetSimBaseline') ?? false;
 
+  /// How long [start] and [dispose] wait for a native call before moving on.
+  static const nativeCallTimeout = Duration(seconds: 2);
+
+  /// Starts the native session. Returns after the native side answers, or
+  /// after [nativeCallTimeout] if it does not (state then arrives once it
+  /// starts); it never blocks longer.
   static Future<RaspLeanSession> start(RaspLeanConfig config) async {
     final session = RaspLeanSession._(config);
     session._nativeStateSubscription = _stateChannel
         .receiveBroadcastStream()
         .listen(session._onNativeState, onError: (_) {});
-    await RaspNativeChannel.boolCall('startLeanSession', config.toNativeMap());
+    await RaspNativeChannel.boolCall('startLeanSession', config.toNativeMap())
+        .timeout(nativeCallTimeout, onTimeout: () => null);
     return session;
   }
 
@@ -391,12 +398,27 @@ class RaspLeanSession {
     );
   }
 
+  /// Stops the native session and closes [stateStream]. Never blocks for
+  /// long, so a restart (dispose, then [start]) cannot hang:
+  /// - the native stop call gets [nativeCallTimeout], then dispose continues
+  ///   (the next `startLeanSession` replaces any native session still running);
+  /// - the event-channel subscription is cancelled without waiting: the
+  ///   cancel takes effect at once, and its future only reports clean-up (for
+  ///   a broadcast stream it is completed in the root zone, so it never
+  ///   resolves inside a widget test's fake async);
+  /// - closing [stateStream] is bounded by [nativeCallTimeout] as well.
+  /// Safe to call more than once.
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
-    await RaspNativeChannel.boolCall('disposeLeanSession');
-    await _nativeStateSubscription?.cancel();
-    await _stateController.close();
+    await RaspNativeChannel.boolCall('disposeLeanSession')
+        .timeout(nativeCallTimeout, onTimeout: () => null);
+    final subscription = _nativeStateSubscription;
+    _nativeStateSubscription = null;
+    if (subscription != null) unawaited(subscription.cancel().catchError((Object _) {}));
+    if (!_stateController.isClosed) {
+      await _stateController.close().timeout(nativeCallTimeout, onTimeout: () {});
+    }
   }
 }
 
