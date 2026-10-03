@@ -64,7 +64,9 @@ class RaspLeanConfig {
   /// `mitm` is SECURE with `pin_not_configured` evidence.
   final String? certificatePinHost;
 
-  /// Accepted SPKI pins for [certificatePinHost], each `sha256/<Base64>`.
+  /// Accepted SPKI pins for [certificatePinHost], each `sha256/` + Base64 of
+  /// the 32-byte SHA-256 of the certificate's SubjectPublicKeyInfo. Any other
+  /// value makes `mitm` report ERROR "invalid pin".
   final List<String> certificatePins;
   final bool highRiskIpDetection;
   final bool overlayDetection;

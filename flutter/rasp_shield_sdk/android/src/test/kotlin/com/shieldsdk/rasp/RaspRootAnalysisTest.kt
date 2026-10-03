@@ -125,12 +125,16 @@ class RaspRootAnalysisTest {
     // ── Combinations / verdict ────────────────────────────────────────────
 
     @Test
-    fun `any single root signal convicts`() {
-        // Deliberately unweighted, unlike the emulator verdict: a su binary or
-        // a Magisk artefact has no innocent explanation on a retail handset.
-        RaspRootAnalysis.allSignalIds.forEach {
+    fun `any single hard signal convicts, a single soft signal does not`() {
+        // Task 4.10: a su binary or a Magisk artefact has no innocent
+        // explanation on a retail handset; a root-manager app alone does.
+        RaspRootAnalysis.hardSignalIds.forEach {
             assertTrue("'$it' must convict alone", RaspRootAnalysis.isRooted(listOf(it)))
         }
+        RaspRootAnalysis.softSignalIds.forEach {
+            assertFalse("'$it' must not convict alone", RaspRootAnalysis.isRooted(listOf(it)))
+        }
+        assertTrue(RaspRootAnalysis.isRooted(listOf("root_manager_app", "busybox")))
     }
 
     @Test
