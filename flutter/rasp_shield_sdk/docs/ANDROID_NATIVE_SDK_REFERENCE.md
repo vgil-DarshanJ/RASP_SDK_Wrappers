@@ -124,8 +124,8 @@ Batch: `scanAppIntegrityBlocking(context)` (3 results).
 | Method | detectorId | Notes |
 |---|---|---|
 | `checkVpnBlocking/Async` | `vpn` | `NetworkCapabilities` + `tun`/`ppp`/`tap` interface fallback. |
-| `checkMitmBlocking/Async` | `mitm` | Native proxy check first; TLS-pin corroboration if `configureCertificatePin()` was called. **Real network I/O when the pin path runs.** |
-| `checkHighRiskIpBlocking/Async` | `high_risk_ip` | **Real network I/O, 5s timeout.** `UNAVAILABLE` on a failed lookup — never blocks a legitimate user on a flaky network. |
+| `checkMitmBlocking/Async` | `mitm` | Any proxy / https proxy / user-installed CA → `DETECTED` on its own. No signal and no pin → `SECURE` with `pin_not_configured` evidence. With a pin (`RaspLeanConfig.certificatePinHost` + `certificatePins`, or `configureCertificatePin()`), the SPKI check decides; a check that cannot complete → `UNKNOWN`. **Real network I/O when the pin path runs.** |
+| `checkHighRiskIpBlocking/Async` | `high_risk_ip` | Asks the platform backend's `GET /v1/ip-risk` (HMAC-signed with the `RaspEventShipper` credential; no third-party call). **Real network I/O, 5s timeout, cached per network for 10 min.** No credential → `UNAVAILABLE`; failed request or unknown country → `UNKNOWN` — never blocks a legitimate user on a flaky network. |
 
 Batch: `scanNetworkSecurityBlocking(context)` (3 results) — **heavier than other batches** (network I/O). Always call off the main thread.
 

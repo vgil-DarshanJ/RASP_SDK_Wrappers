@@ -1,5 +1,4 @@
-import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+import '../sdk/detectors/rasp_native_channel.dart';
 
 /// Structured result of a geo/IP-reputation check, carrying which of the
 /// independent signals fired rather than collapsing them into one boolean.
@@ -16,7 +15,7 @@ class HighRiskIpResult {
   /// `true` when the resolved country code matched the blocked list.
   final bool matchedBlockedCountry;
 
-  /// `true` when the API's own `proxy` field reported this connection as a
+  /// `true` when the backend's `proxy` flag reported this connection as a
   /// known proxy/VPN exit.
   final bool isProxy;
 
@@ -52,69 +51,48 @@ class HighRiskIpResult {
 }
 
 class GeoFilterService {
-  /// Countries this check blocks. Kept in one place so
-  /// [checkHighRiskIp] and any future evidence-reporting stays in sync with
-  /// what actually gets flagged.
-  static const _blockedCountries = ['KP', 'IR', 'SY'];
-
   /// Check if the current IP belongs to a high-risk country or a known
   /// VPN/Proxy.
   ///
-  /// **Preserved unchanged** for backward compatibility — the previous
-  /// milestone's `rasp_service.dart` (dead code, but still compiled) and any
-  /// external caller depend on this exact signature and fail-open-on-error
-  /// behaviour. New callers that want to know *which* signal fired should use
-  /// [checkHighRiskIp] instead.
+  /// **Preserved** for backward compatibility: same signature, and still
+  /// `false` when the check could not run. New callers that want to know
+  /// *which* signal fired should use [checkHighRiskIp] instead.
   static Future<bool> isHighRiskIp() async {
     final result = await checkHighRiskIp();
     return result.isRisk;
   }
 
-  /// Structured version of [isHighRiskIp], reporting which independent
-  /// signal(s) contributed to the verdict.
+  /// Structured version of [isHighRiskIp].
   ///
-  /// [isRisk] stays `false` on a failed lookup — a customer with a slow or
-  /// unreliable connection must not be *blocked* because an optional geo-IP
-  /// lookup timed out (unchanged from the original implementation). What
-  /// changed: [HighRiskIpResult.checkFailed] now distinguishes "looked and
-  /// found nothing" from "could not look" (network error, timeout, non-200,
-  /// or the debug-mode skip below), so [HighRiskIpDetector] reports
-  /// `UNAVAILABLE` rather than silently folding a failed check into
-  /// `SECURE` — the same class of bug [DeviceFingerprintService] was
-  /// already fixed for; this closes the same gap here. See
+  /// Asks the native engine, which asks the RASP Shield backend
+  /// (`GET /v1/ip-risk`, HMAC-signed with the credential given to
+  /// `RaspSecurityEventShipper.configure`). The backend uses the request IP
+  /// and its own blocked-country list. The device makes no third-party call,
+  /// and there is no debug-build skip.
+  ///
+  /// [HighRiskIpResult.checkFailed] is `true` whenever the engine could not
+  /// decide (no credential, request failed, country unknown) or the native
+  /// layer did not answer; [HighRiskIpResult.isRisk] stays `false` then, so a
+  /// flaky network never blocks a customer. See
   /// `docs/DETECTOR_FAILURE_HANDLING.md`.
   static Future<HighRiskIpResult> checkHighRiskIp() async {
-    if (kDebugMode) return HighRiskIpResult.unavailable; // Skip in debug
-
-    try {
-      final dio = Dio(
-        BaseOptions(
-          // Hard timeouts so a slow/unreachable network can never hang the scan.
-          connectTimeout: const Duration(seconds: 5),
-          receiveTimeout: const Duration(seconds: 5),
-          sendTimeout: const Duration(seconds: 5),
-        ),
-      );
-      // Using a free IP info API for demonstration
-      // In production, use a professional service like ipstack, cloudflare, or maxmind
-      final response = await dio.get('https://ipapi.co/json/');
-
-      if (response.statusCode == 200) {
-        final data = response.data;
-        final country = data['country_code'] as String?;
-        final matchedCountry = _blockedCountries.contains(country);
-        final isProxy = data['proxy'] == true;
+    final raw = await RaspNativeChannel.mapCall('checkHighRiskIp');
+    if (raw == null) return HighRiskIpResult.unavailable;
+    final signals = <String>{
+      for (final entry in (raw['evidence'] as List?) ?? const [])
+        if (entry is Map && entry['key'] == 'high_risk_ip_signal') '${entry['value']}',
+    };
+    switch (raw['status']) {
+      case 'DETECTED':
         return HighRiskIpResult(
-          isRisk: matchedCountry || isProxy,
-          matchedBlockedCountry: matchedCountry,
-          isProxy: isProxy,
+          isRisk: true,
+          matchedBlockedCountry: signals.contains('blocked_country'),
+          isProxy: signals.contains('proxy_flag'),
         );
-      }
-      return HighRiskIpResult.unavailable;
-    } catch (e) {
-      // isRisk stays false (never blocks on a flaky network) — checkFailed
-      // is what lets the caller tell this apart from a genuine clean result.
-      return HighRiskIpResult.unavailable;
+      case 'SECURE':
+        return HighRiskIpResult.clean;
+      default:
+        return HighRiskIpResult.unavailable;
     }
   }
 }

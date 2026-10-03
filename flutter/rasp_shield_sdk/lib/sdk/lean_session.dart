@@ -58,6 +58,14 @@ class RaspLeanConfig {
   final String? expectedSigningCertSha256;
   final bool vpnDetection;
   final bool mitmDetection;
+
+  /// Host for the `mitm` SPKI pin check (e.g. your API host). `null` (or no
+  /// [certificatePins]) = no pin check: with no proxy or user-CA signal,
+  /// `mitm` is SECURE with `pin_not_configured` evidence.
+  final String? certificatePinHost;
+
+  /// Accepted SPKI pins for [certificatePinHost], each `sha256/<Base64>`.
+  final List<String> certificatePins;
   final bool highRiskIpDetection;
   final bool overlayDetection;
   final bool accessibilityDetection;
@@ -118,6 +126,8 @@ class RaspLeanConfig {
     this.expectedSigningCertSha256,
     this.vpnDetection = false,
     this.mitmDetection = false,
+    this.certificatePinHost,
+    this.certificatePins = const [],
     this.highRiskIpDetection = false,
     this.overlayDetection = false,
     this.accessibilityDetection = false,
@@ -168,6 +178,8 @@ class RaspLeanConfig {
         'expectedSigningCertSha256': expectedSigningCertSha256,
         'vpnDetection': vpnDetection,
         'mitmDetection': mitmDetection,
+        'certificatePinHost': certificatePinHost,
+        'certificatePins': certificatePins,
         'highRiskIpDetection': highRiskIpDetection,
         'overlayDetection': overlayDetection,
         'accessibilityDetection': accessibilityDetection,
@@ -278,6 +290,13 @@ class RaspLeanSession {
   /// the customer has been re-verified). Returns `false` if nothing was pending.
   static Future<bool> acknowledgeSimChange() async =>
       await RaspNativeChannel.boolCall('acknowledgeSimChange') ?? false;
+
+  /// Testing only: forgets the stored SIM baseline, so the next `sim_change`
+  /// run stores a new one and reports UNKNOWN "baseline stored". The native
+  /// side refuses it (returns `false`, baseline kept) unless the app is a
+  /// debuggable build; production apps use [acknowledgeSimChange].
+  static Future<bool> resetSimBaseline() async =>
+      await RaspNativeChannel.boolCall('resetSimBaseline') ?? false;
 
   static Future<RaspLeanSession> start(RaspLeanConfig config) async {
     final session = RaspLeanSession._(config);

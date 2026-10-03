@@ -200,6 +200,20 @@ internal class RaspSecurityChannelHandler(
                     mainHandler.post { result.success(ok) }
                 }.start()
             }
+            "resetSimBaseline" -> {
+                // Testing only; the engine refuses it unless the app is debuggable.
+                Thread {
+                    val ok = RaspShieldCore.resetSimBaseline(applicationContext)
+                    mainHandler.post { result.success(ok) }
+                }.start()
+            }
+            "checkHighRiskIp" -> {
+                // Network I/O (the backend's /v1/ip-risk): off the main thread.
+                Thread {
+                    val check = RaspShieldCore.checkHighRiskIpBlocking(applicationContext)
+                    mainHandler.post { result.success(checkResultWire(check)) }
+                }.start()
+            }
             "setLeanSessionServerTime" -> {
                 val serverTime = (call.arguments as? Number)?.toLong()
                 if (serverTime == null) {
@@ -1541,6 +1555,8 @@ internal class RaspSecurityChannelHandler(
             repackagingDetection = enabled("repackagingDetection"),
             expectedSigningCertSha256 = values["expectedSigningCertSha256"] as? String,
             vpnDetection = enabled("vpnDetection"), mitmDetection = enabled("mitmDetection"),
+            certificatePinHost = values["certificatePinHost"] as? String,
+            certificatePins = (values["certificatePins"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
             highRiskIpDetection = enabled("highRiskIpDetection"), overlayDetection = enabled("overlayDetection"),
             accessibilityDetection = enabled("accessibilityDetection"),
             externalDisplayDetection = enabled("externalDisplayDetection"),
@@ -1577,20 +1593,21 @@ internal class RaspSecurityChannelHandler(
             "developerModeEnabled" to state.developerModeEnabled,
             "clipboardActive" to state.clipboardActive,
             "clipboardChangeCount" to state.clipboardChangeCount,
-            "extendedDetectors" to state.extendedDetectors.mapValues { (_, check) ->
-                mapOf(
-                    "detectorId" to check.detectorId,
-                    "status" to check.status.name,
-                    "reason" to check.reason,
-                    "observedAtMillis" to check.observedAtMillis,
-                    "evidence" to check.evidence.map { evidence ->
-                        mapOf("key" to evidence.key, "value" to evidence.value, "note" to evidence.note)
-                    },
-                )
-            },
+            "extendedDetectors" to state.extendedDetectors.mapValues { (_, check) -> checkResultWire(check) },
         )
         mainHandler.post { leanStateSink?.success(wire) }
     }
+
+    /** One detector result in the shape Dart's lean-session decoder reads. */
+    private fun checkResultWire(check: RaspCheckResult): Map<String, Any?> = mapOf(
+        "detectorId" to check.detectorId,
+        "status" to check.status.name,
+        "reason" to check.reason,
+        "observedAtMillis" to check.observedAtMillis,
+        "evidence" to check.evidence.map { evidence ->
+            mapOf("key" to evidence.key, "value" to evidence.value, "note" to evidence.note)
+        },
+    )
 
     private fun fingerprintOf(encoded: ByteArray): String =
         java.security.MessageDigest.getInstance("SHA-256")
