@@ -255,6 +255,20 @@ class RaspLeanSession {
     }
   }
 
+  /// Evidence-envelope delivery counters since the app process started:
+  /// `delivered`, `dropped_invalid` (400/422), `dropped_expired` (older than
+  /// 7 days), `dropped_unauthorized` (401 again after re-registration),
+  /// `dropped_rejected` (other 4xx) and `re_registrations`. Empty when the
+  /// native side does not answer.
+  static Future<Map<String, int>> deliveryStats() async {
+    final raw = await RaspNativeChannel.mapCall('getLeanDeliveryStats');
+    if (raw == null) return const {};
+    return {
+      for (final e in raw.entries)
+        if (e.value is num) e.key: (e.value as num).toInt(),
+    };
+  }
+
   /// For payment/transfer screens: `true` while a phone call is ringing or in
   /// progress, `false` when there is none, `null` when it cannot be told
   /// (READ_PHONE_STATE not granted). Works without a running session.

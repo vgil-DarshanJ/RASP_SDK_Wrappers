@@ -95,6 +95,17 @@ void main() {
     expect(calls, ['isCallActive', 'acknowledgeSimChange']);
   });
 
+  test('deliveryStats reads the native counters', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    RaspNativeChannel.testInvokeHandler = (method, arguments) async =>
+        method == 'getLeanDeliveryStats' ? {'delivered': 3, 'dropped_invalid': 1, 'junk': 'x'} : null;
+    addTearDown(() => RaspNativeChannel.testInvokeHandler = null);
+    expect(await RaspLeanSession.deliveryStats(), {'delivered': 3, 'dropped_invalid': 1});
+
+    RaspNativeChannel.testInvokeHandler = (method, arguments) async => null;
+    expect(await RaspLeanSession.deliveryStats(), isEmpty);
+  });
+
   test('location snapshot carries the mock flag', () {
     final snapshot = RaspLocationSnapshot(
       latitude: 1, longitude: 2, capturedAt: DateTime.utc(2026), isMock: true,

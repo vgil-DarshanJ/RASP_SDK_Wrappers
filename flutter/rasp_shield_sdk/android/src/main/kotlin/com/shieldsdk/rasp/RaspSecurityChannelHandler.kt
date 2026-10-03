@@ -187,6 +187,9 @@ internal class RaspSecurityChannelHandler(
                     result.success(leanSession != null)
                 }
             }
+            "getLeanDeliveryStats" -> {
+                result.success(RaspEventShipper.deliveryStats())
+            }
             "isCallActive" -> {
                 result.success(RaspShieldCore.isCallActive(applicationContext))
             }
