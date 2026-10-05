@@ -23,12 +23,23 @@ class RaspLocationSnapshot {
   /// `null` when unknown. Used by `mock_location`.
   final bool? isMock;
 
+  /// The location provider when known (e.g. `gps`, `fused`); evidence only.
+  final String? provider;
+
+  /// `true` only when the user opted in to sharing location with the
+  /// backend. Then the coordinates are attached to shipped results with
+  /// `location_opt_in = true`; otherwise they stay on the device and are only
+  /// used by `mock_location`.
+  final bool shareWithBackend;
+
   const RaspLocationSnapshot({
     required this.latitude,
     required this.longitude,
     this.accuracyMeters,
     required this.capturedAt,
     this.isMock,
+    this.provider,
+    this.shareWithBackend = false,
   });
 }
 
@@ -55,7 +66,21 @@ class RaspLeanConfig {
   final bool tamperDetection;
   final bool untrustedInstallSourceDetection;
   final bool repackagingDetection;
+
+  /// The app's signing certificate SHA-256 (hex); `tamper` and `repackage`
+  /// compare against it. `null` = `tamper` reports UNKNOWN "not configured".
   final String? expectedSigningCertSha256;
+
+  /// `tamper`: installer packages accepted (e.g. `com.android.vending`);
+  /// empty = installer not checked.
+  final List<String> expectedInstallers;
+
+  /// `tamper`: dex digest baked at build time (see the engine's
+  /// `RaspTamperAnalysis.dexSha256`); `null` = not checked.
+  final String? expectedClassesDexSha256;
+
+  /// `tamper`: SHA-256 of `resources.arsc` baked at build time; `null` = not checked.
+  final String? expectedResourcesArscSha256;
   final bool vpnDetection;
   final bool mitmDetection;
 
@@ -126,6 +151,9 @@ class RaspLeanConfig {
     this.untrustedInstallSourceDetection = false,
     this.repackagingDetection = false,
     this.expectedSigningCertSha256,
+    this.expectedInstallers = const [],
+    this.expectedClassesDexSha256,
+    this.expectedResourcesArscSha256,
     this.vpnDetection = false,
     this.mitmDetection = false,
     this.certificatePinHost,
@@ -178,6 +206,9 @@ class RaspLeanConfig {
         'untrustedInstallSourceDetection': untrustedInstallSourceDetection,
         'repackagingDetection': repackagingDetection,
         'expectedSigningCertSha256': expectedSigningCertSha256,
+        'expectedInstallers': expectedInstallers,
+        'expectedClassesDexSha256': expectedClassesDexSha256,
+        'expectedResourcesArscSha256': expectedResourcesArscSha256,
         'vpnDetection': vpnDetection,
         'mitmDetection': mitmDetection,
         'certificatePinHost': certificatePinHost,
@@ -249,15 +280,23 @@ class RaspLeanSession {
   Stream<RaspLeanState> get stateStream => _stateController.stream;
 
   RaspLocationSnapshot? get currentLocation => _currentLocation;
+  /// `null` clears the location on the native side too (e.g. when the user
+  /// turns location sharing off), so nothing more is shipped or checked.
   set currentLocation(RaspLocationSnapshot? value) {
     _currentLocation = value;
-    if (value == null || _disposed) return;
+    if (_disposed) return;
+    if (value == null) {
+      unawaited(RaspNativeChannel.boolCall('clearLeanSessionLocation'));
+      return;
+    }
     unawaited(RaspNativeChannel.boolCall('setLeanSessionLocation', {
       'latitude': value.latitude,
       'longitude': value.longitude,
       'accuracyMeters': value.accuracyMeters,
       'capturedAtMillis': value.capturedAt.millisecondsSinceEpoch,
       'isMock': value.isMock,
+      'provider': value.provider,
+      'shareWithBackend': value.shareWithBackend,
     }));
   }
 

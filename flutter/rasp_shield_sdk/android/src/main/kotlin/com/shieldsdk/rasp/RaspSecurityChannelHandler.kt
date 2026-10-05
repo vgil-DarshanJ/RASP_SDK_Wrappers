@@ -183,9 +183,17 @@ internal class RaspSecurityChannelHandler(
                         capturedAtMillis = (args["capturedAtMillis"] as? Number)?.toLong()
                             ?: System.currentTimeMillis(),
                         isMock = args["isMock"] as? Boolean,
+                        provider = args["provider"] as? String,
+                        shareWithBackend = args["shareWithBackend"] as? Boolean ?: false,
                     )
                     result.success(leanSession != null)
                 }
+            }
+            "clearLeanSessionLocation" -> {
+                // The user stopped sharing location: nothing more is checked or shipped.
+                leanSession?.currentLocation = null
+                RaspMockLocationProbes.movement.clear()
+                result.success(true)
             }
             "getLeanDeliveryStats" -> {
                 result.success(RaspEventShipper.deliveryStats())
@@ -1554,6 +1562,9 @@ internal class RaspSecurityChannelHandler(
             tamperDetection = enabled("tamperDetection"), untrustedInstallSourceDetection = enabled("untrustedInstallSourceDetection"),
             repackagingDetection = enabled("repackagingDetection"),
             expectedSigningCertSha256 = values["expectedSigningCertSha256"] as? String,
+            expectedInstallers = (values["expectedInstallers"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
+            expectedClassesDexSha256 = values["expectedClassesDexSha256"] as? String,
+            expectedResourcesArscSha256 = values["expectedResourcesArscSha256"] as? String,
             vpnDetection = enabled("vpnDetection"), mitmDetection = enabled("mitmDetection"),
             certificatePinHost = values["certificatePinHost"] as? String,
             certificatePins = (values["certificatePins"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
