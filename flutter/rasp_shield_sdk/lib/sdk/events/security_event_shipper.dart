@@ -131,6 +131,17 @@ class RaspSecurityEventShipper {
 
   static bool get isConfigured => _credential != null;
 
+  /// `host[:port]` of the configured credential's ingestion URL — which
+  /// backend events are sent to. Never the path, key or secret. `null` when
+  /// not configured or the URL has no host.
+  static String? get configuredBackendHost {
+    final url = _credential?.ingestionUrl;
+    if (url == null) return null;
+    final uri = Uri.tryParse(url.trim());
+    if (uri == null || uri.host.isEmpty) return null;
+    return uri.hasPort ? '${uri.host}:${uri.port}' : uri.host;
+  }
+
   /// Same as [configure], and also persists [credentialJson] to encrypted
   /// storage (see [_secureStorage]'s doc) so a later [restore] call — e.g.
   /// on the next app launch — can recover it without asking the user to

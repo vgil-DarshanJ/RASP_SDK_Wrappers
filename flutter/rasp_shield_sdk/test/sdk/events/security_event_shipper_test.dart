@@ -19,6 +19,23 @@ void main() {
     RaspSecurityEventShipper.resetForTests();
   });
 
+  test('configuredBackendHost names only the host the events go to', () async {
+    expect(RaspSecurityEventShipper.configuredBackendHost, isNull);
+    RaspNativeChannel.testInvokeHandler = (method, arguments) async => true;
+    expect(await RaspSecurityEventShipper.configure(validCredential), isTrue);
+    expect(RaspSecurityEventShipper.configuredBackendHost, 'ingestion.example.test');
+    final host = RaspSecurityEventShipper.configuredBackendHost!;
+    expect(host.contains('key_test') || host.contains('secret_test') || host.contains('/v1'), isFalse);
+
+    expect(
+      await RaspSecurityEventShipper.configure(
+        validCredential.replaceFirst('https://ingestion.example.test/v1/events', 'http://192.168.2.208:4000/v1/events'),
+      ),
+      isTrue,
+    );
+    expect(RaspSecurityEventShipper.configuredBackendHost, '192.168.2.208:4000');
+  });
+
   test('awaits and reports a failed native lean shipping configuration',
       () async {
     final nativeReply = Completer<Object?>();
