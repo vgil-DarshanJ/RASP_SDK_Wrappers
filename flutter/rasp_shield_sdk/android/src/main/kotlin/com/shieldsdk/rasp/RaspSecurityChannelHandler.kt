@@ -1686,6 +1686,7 @@ internal class RaspSecurityChannelHandler(
             useEvidenceEnvelope = enabled("useEvidenceEnvelope"),
             pollIntervalMillis = millis("pollIntervalMillis", 4_000),
             heartbeatIntervalMillis = millis("heartbeatIntervalMillis", 20_000),
+            locationHeartbeatIntervalMillis = millis("locationHeartbeatIntervalMillis", 60_000),
             detectorTimeoutMillis = millis("detectorTimeoutMillis", 6_000),
             otpInterceptionDetection = enabled("otpInterceptionDetection"),
             smsReaderAbuseDetection = enabled("smsReaderAbuseDetection"),
@@ -1717,6 +1718,14 @@ internal class RaspSecurityChannelHandler(
             "clipboardChangeCount" to state.clipboardChangeCount,
             "extendedDetectors" to state.extendedDetectors.mapValues { (_, check) -> checkResultWire(check) },
             "risk" to state.risk?.let(::riskWire),
+            "locationHeartbeat" to state.locationHeartbeat?.let { heartbeat ->
+                mapOf(
+                    "atMillis" to heartbeat.atMillis,
+                    "outcome" to heartbeat.outcome.name,
+                    "detail" to heartbeat.detail,
+                    "cleared" to heartbeat.cleared,
+                )
+            },
         )
         mainHandler.post { leanStateSink?.success(wire) }
     }

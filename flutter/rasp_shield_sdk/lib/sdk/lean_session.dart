@@ -31,8 +31,9 @@ class RaspLocationSnapshot {
 
   /// `true` only when the user opted in to sharing location with the
   /// backend. Then the coordinates are attached to shipped results with
-  /// `location_opt_in = true`; otherwise they stay on the device and are only
-  /// used by `mock_location`.
+  /// `location_opt_in = true` and sent in a location heartbeat (see
+  /// [RaspLeanConfig.locationHeartbeatInterval]); otherwise they stay on the
+  /// device and are only used by `mock_location`.
   final bool shareWithBackend;
 
   const RaspLocationSnapshot({
@@ -130,6 +131,16 @@ class RaspLeanConfig {
   final bool useEvidenceEnvelope;
   final Duration pollInterval;
   final Duration heartbeatInterval;
+
+  /// Location heartbeat (Task 9.3): while [RaspLeanSession.currentLocation]
+  /// is set with `shareWithBackend: true`, the SDK sends one small signed
+  /// `location_heartbeat` event (coarse coordinates, accuracy, fix age, mock
+  /// flag) at this interval and on the first fix, independent of threats.
+  /// The native side uses at least 30 seconds. Nothing is sent while sharing
+  /// is off, nor for a fix older than 2 minutes; turning sharing off sends
+  /// one "sharing off" message so the backend clears the stored location.
+  /// The delivery result is in [RaspLeanState.locationHeartbeat].
+  final Duration locationHeartbeatInterval;
 
   // Task 8.1 fraud signals — all off by default.
   final bool otpInterceptionDetection;
@@ -229,6 +240,7 @@ class RaspLeanConfig {
     this.useEvidenceEnvelope = false,
     this.pollInterval = const Duration(seconds: 4),
     this.heartbeatInterval = const Duration(seconds: 20),
+    this.locationHeartbeatInterval = const Duration(seconds: 60),
     this.otpInterceptionDetection = false,
     this.smsReaderAbuseDetection = false,
     this.otpForwardingDetection = false,
@@ -300,6 +312,7 @@ class RaspLeanConfig {
         'useEvidenceEnvelope': useEvidenceEnvelope,
         'pollIntervalMillis': pollInterval.inMilliseconds,
         'heartbeatIntervalMillis': heartbeatInterval.inMilliseconds,
+        'locationHeartbeatIntervalMillis': locationHeartbeatInterval.inMilliseconds,
         'otpInterceptionDetection': otpInterceptionDetection,
         'smsReaderAbuseDetection': smsReaderAbuseDetection,
         'otpForwardingDetection': otpForwardingDetection,
@@ -319,6 +332,62 @@ class RaspLeanConfig {
       };
 }
 
+/// What happened to the last location heartbeat.
+enum RaspLocationHeartbeatOutcome {
+  /// The backend accepted it.
+  delivered,
+
+  /// No answer from the backend: network, backend down, or the device key is
+  /// not registered yet. The next heartbeat tries again.
+  notDelivered,
+
+  /// The backend refused it (e.g. a wrong or revoked credential).
+  rejected,
+
+  /// No backend credential is configured.
+  notConfigured,
+}
+
+/// Delivery result of the last location heartbeat (Task 9.3).
+class RaspLocationHeartbeatStatus {
+  final DateTime at;
+  final RaspLocationHeartbeatOutcome outcome;
+
+  /// Short text without URLs or keys: "delivered", "HTTP 400", ...
+  final String detail;
+
+  /// `true` for the message sent when sharing was turned off.
+  final bool cleared;
+
+  const RaspLocationHeartbeatStatus({
+    required this.at,
+    required this.outcome,
+    required this.detail,
+    this.cleared = false,
+  });
+
+  /// From the native state map; `null` when absent or unreadable.
+  static RaspLocationHeartbeatStatus? fromWire(Object? raw) {
+    if (raw is! Map) return null;
+    final atMillis = raw['atMillis'];
+    final outcome = switch (raw['outcome']) {
+      'DELIVERED' => RaspLocationHeartbeatOutcome.delivered,
+      'NOT_DELIVERED' => RaspLocationHeartbeatOutcome.notDelivered,
+      'REJECTED' => RaspLocationHeartbeatOutcome.rejected,
+      'NOT_CONFIGURED' => RaspLocationHeartbeatOutcome.notConfigured,
+      _ => null,
+    };
+    if (atMillis is! num || outcome == null) return null;
+    final detail = raw['detail'];
+    return RaspLocationHeartbeatStatus(
+      at: DateTime.fromMillisecondsSinceEpoch(atMillis.toInt()),
+      outcome: outcome,
+      detail: detail is String ? detail : outcome.name,
+      cleared: raw['cleared'] == true,
+    );
+  }
+}
+
 class RaspLeanState {
   final bool? screenshotActive;
   final RaspUsbState usb;
@@ -329,6 +398,9 @@ class RaspLeanState {
   /// Session risk from the last tick; `null` unless `sessionRiskScoring` is on.
   final RaspSessionRisk? risk;
 
+  /// Delivery result of the last location heartbeat; `null` until one was sent.
+  final RaspLocationHeartbeatStatus? locationHeartbeat;
+
   const RaspLeanState({
     required this.screenshotActive,
     required this.usb,
@@ -336,6 +408,7 @@ class RaspLeanState {
     required this.clipboardEvidence,
     this.extendedDetectors = const {},
     this.risk,
+    this.locationHeartbeat,
   });
 
   static const initial = RaspLeanState(
@@ -573,6 +646,7 @@ class RaspLeanSession {
       ),
       extendedDetectors: extended,
       risk: raw['risk'] is Map ? RaspSessionRisk.fromWire(raw['risk']) : null,
+      locationHeartbeat: RaspLocationHeartbeatStatus.fromWire(raw['locationHeartbeat']),
     );
   }
 
