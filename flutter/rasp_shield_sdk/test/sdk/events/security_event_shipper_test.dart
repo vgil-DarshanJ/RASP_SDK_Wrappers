@@ -34,6 +34,21 @@ void main() {
       isTrue,
     );
     expect(RaspSecurityEventShipper.configuredBackendHost, '192.168.2.208:4000');
+    expect(RaspSecurityEventShipper.configuredBackendOrigin, 'http://192.168.2.208:4000');
+  });
+
+  test('configuredBackendOrigin is scheme and host only, null when not configured', () async {
+    expect(RaspSecurityEventShipper.configuredBackendOrigin, isNull);
+    RaspNativeChannel.testInvokeHandler = (method, arguments) async => true;
+    expect(await RaspSecurityEventShipper.configure(validCredential), isTrue);
+    expect(RaspSecurityEventShipper.configuredBackendOrigin, 'https://ingestion.example.test');
+    expect(
+      await RaspSecurityEventShipper.configure(
+        validCredential.replaceFirst('https://ingestion.example.test/v1/events', 'http://localhost:4000/v1/events'),
+      ),
+      isTrue,
+    );
+    expect(RaspSecurityEventShipper.configuredBackendOrigin, 'http://localhost:4000');
   });
 
   test('awaits and reports a failed native lean shipping configuration',

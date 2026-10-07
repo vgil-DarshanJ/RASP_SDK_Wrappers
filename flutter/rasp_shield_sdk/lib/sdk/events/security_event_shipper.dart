@@ -142,6 +142,17 @@ class RaspSecurityEventShipper {
     return uri.hasPort ? '${uri.host}:${uri.port}' : uri.host;
   }
 
+  /// `scheme://host[:port]` of the configured ingestion URL (no path, key or
+  /// secret) — e.g. for a connection check against the backend's `/healthz`.
+  /// `null` when not configured or the URL has no host.
+  static String? get configuredBackendOrigin {
+    final url = _credential?.ingestionUrl;
+    if (url == null) return null;
+    final uri = Uri.tryParse(url.trim());
+    if (uri == null || uri.host.isEmpty || uri.scheme.isEmpty) return null;
+    return uri.hasPort ? '${uri.scheme}://${uri.host}:${uri.port}' : '${uri.scheme}://${uri.host}';
+  }
+
   /// Same as [configure], and also persists [credentialJson] to encrypted
   /// storage (see [_secureStorage]'s doc) so a later [restore] call — e.g.
   /// on the next app launch — can recover it without asking the user to
