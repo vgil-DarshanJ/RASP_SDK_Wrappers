@@ -87,6 +87,11 @@ internal class RaspSecurityChannelHandler(
     @Volatile private var leanStateSink: EventChannel.EventSink? = null
     private var leanSession: RaspLeanSession? = null
 
+    /** Session/transaction calls sign with the Keystore key: off the main thread, in call order. */
+    private val fraudExecutor = java.util.concurrent.Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "RaspFraudApi").apply { isDaemon = true }
+    }
+
     fun onActivityAttached(activity: Activity) = leanScreenGuard.attach(activity)
     fun onActivityDetached() = leanScreenGuard.detach()
 
@@ -221,6 +226,46 @@ internal class RaspSecurityChannelHandler(
                     val check = RaspShieldCore.checkHighRiskIpBlocking(applicationContext)
                     mainHandler.post { result.success(checkResultWire(check)) }
                 }.start()
+            }
+            "reportLeanSession" -> fraudCall(result) { session ->
+                val args = call.arguments as? Map<*, *> ?: emptyMap<Any, Any>()
+                val event = RaspSessionEvent.fromWire(args["event"] as? String ?: "")
+                    ?: throw IllegalArgumentException("event must be login, resume or logout")
+                val report = session.reportSession(
+                    args["accountId"] as? String ?: "", args["sessionId"] as? String ?: "", event,
+                )
+                mapOf(
+                    "accountHash" to report.accountHash,
+                    "sessionHash" to report.sessionHash,
+                    "event" to report.event.wire,
+                    "risk" to riskWire(report.risk),
+                    "sentToBackend" to report.sentToBackend,
+                )
+            }
+            "reportLeanTransaction" -> fraudCall(result) { session ->
+                val args = call.arguments as? Map<*, *> ?: emptyMap<Any, Any>()
+                val report = session.reportTransaction(
+                    args["amount"] as? String ?: "", args["currency"] as? String ?: "",
+                    args["beneficiaryId"] as? String ?: "", args["channel"] as? String ?: "",
+                )
+                mapOf(
+                    "transaction" to signedTransactionWire(report.transaction),
+                    "channel" to report.channel,
+                    "sentToBackend" to report.sentToBackend,
+                )
+            }
+            "signLeanTransaction" -> fraudCall(result) { session ->
+                val args = call.arguments as? Map<*, *> ?: emptyMap<Any, Any>()
+                signedTransactionWire(
+                    session.signTransaction(
+                        args["amount"] as? String ?: "", args["currency"] as? String ?: "",
+                        args["beneficiaryId"] as? String ?: "",
+                    ),
+                )
+            }
+            "setLeanHighRiskTransactionMode" -> fraudCall(result) { session ->
+                session.setHighRiskTransactionMode(call.arguments as? Boolean ?: false)
+                riskWire(session.currentRisk())
             }
             "setLeanSessionServerTime" -> {
                 val serverTime = (call.arguments as? Number)?.toLong()
@@ -1544,9 +1589,59 @@ internal class RaspSecurityChannelHandler(
         false
     }
 
+    /**
+     * Runs a session/transaction call on [fraudExecutor]. Invalid input →
+     * `INVALID_ARGUMENT`; feature off, no salt, no session, no key or no
+     * native session → `UNAVAILABLE`. Messages never contain the raw ids.
+     */
+    private fun fraudCall(result: MethodChannel.Result, block: (RaspLeanSession) -> Any?) {
+        val session = leanSession
+        if (session == null) {
+            result.error("UNAVAILABLE", "No lean session is running", null)
+            return
+        }
+        fraudExecutor.execute {
+            try {
+                val value = block(session)
+                mainHandler.post { result.success(value) }
+            } catch (e: IllegalArgumentException) {
+                mainHandler.post { result.error("INVALID_ARGUMENT", e.message, null) }
+            } catch (e: IllegalStateException) {
+                mainHandler.post { result.error("UNAVAILABLE", e.message, null) }
+            } catch (e: Exception) {
+                mainHandler.post { result.error("ERROR", e.javaClass.simpleName, null) }
+            }
+        }
+    }
+
+    private fun riskWire(risk: RaspRiskAssessment): Map<String, Any?> = mapOf(
+        "score" to risk.score,
+        "maxPossibleScore" to risk.maxPossibleScore,
+        "verdict" to risk.verdict.name,
+        "stepUpRecommended" to risk.stepUpRecommended,
+        "firedGroups" to risk.firedGroups,
+        "undecidedGroups" to risk.undecidedGroups,
+        "contributingDetectors" to risk.contributingDetectors,
+        "highRiskTransactionMode" to risk.highRiskTransactionMode,
+        "evaluatedAtMillis" to risk.evaluatedAtMillis,
+    )
+
+    private fun signedTransactionWire(t: RaspSignedTransaction): Map<String, Any?> = mapOf(
+        "canonical" to t.canonical,
+        "signature" to t.signatureBase64,
+        "counter" to t.counter,
+        "nonce" to t.nonce,
+        "timestampMillis" to t.timestampMillis,
+        "beneficiaryHash" to t.beneficiaryHash,
+        "bindingSha256" to t.bindingSha256,
+        "deviceKeyId" to t.deviceKeyId,
+        "risk" to riskWire(t.risk),
+    )
+
     private fun leanConfig(values: Map<*, *>): RaspLeanConfig {
         fun enabled(key: String) = values[key] as? Boolean ?: false
         fun millis(key: String, fallback: Long) = (values[key] as? Number)?.toLong() ?: fallback
+        fun strings(key: String) = (values[key] as? List<*>)?.filterIsInstance<String>() ?: emptyList()
         return RaspLeanConfig(
             screenshotProtection = enabled("screenshotProtection"),
             usbDetection = enabled("usbDetection"), adbDetection = enabled("adbDetection"),
@@ -1592,6 +1687,22 @@ internal class RaspSecurityChannelHandler(
             pollIntervalMillis = millis("pollIntervalMillis", 4_000),
             heartbeatIntervalMillis = millis("heartbeatIntervalMillis", 20_000),
             detectorTimeoutMillis = millis("detectorTimeoutMillis", 6_000),
+            otpInterceptionDetection = enabled("otpInterceptionDetection"),
+            smsReaderAbuseDetection = enabled("smsReaderAbuseDetection"),
+            otpForwardingDetection = enabled("otpForwardingDetection"),
+            remoteControlAppDetection = enabled("remoteControlAppDetection"),
+            screenSharingDetection = enabled("screenSharingDetection"),
+            notificationListenerAllowlist = strings("notificationListenerAllowlist"),
+            smsAppAllowlist = strings("smsAppAllowlist"),
+            autoForwardPackages = strings("autoForwardPackages"),
+            remoteControlListJson = values["remoteControlListJson"] as? String,
+            remoteControlListPublicKey = values["remoteControlListPublicKey"] as? String,
+            sessionRiskScoring = enabled("sessionRiskScoring"),
+            riskMediumThreshold = (values["riskMediumThreshold"] as? Number)?.toInt() ?: 30,
+            riskHighThreshold = (values["riskHighThreshold"] as? Number)?.toInt() ?: 60,
+            stepUpThreshold = (values["stepUpThreshold"] as? Number)?.toInt(),
+            highRiskTransactionMode = enabled("highRiskTransactionMode"),
+            accountHashSalt = values["accountHashSalt"] as? String,
         )
     }
 
@@ -1605,6 +1716,7 @@ internal class RaspSecurityChannelHandler(
             "clipboardActive" to state.clipboardActive,
             "clipboardChangeCount" to state.clipboardChangeCount,
             "extendedDetectors" to state.extendedDetectors.mapValues { (_, check) -> checkResultWire(check) },
+            "risk" to state.risk?.let(::riskWire),
         )
         mainHandler.post { leanStateSink?.success(wire) }
     }

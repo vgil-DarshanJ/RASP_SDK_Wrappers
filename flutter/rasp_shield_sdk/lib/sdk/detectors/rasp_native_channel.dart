@@ -132,6 +132,29 @@ class RaspNativeChannel {
     return raw.map((k, v) => MapEntry(k.toString(), v));
   }
 
+  /// Like [mapCall], but a platform error is rethrown as
+  /// [PlatformException] instead of becoming `null` — for host-facing calls
+  /// whose caller must see why they failed (invalid input, feature off).
+  /// `null` still means nothing answered (not a native platform, no plugin).
+  static Future<Map<String, Object?>?> mapCallOrThrow(String method, [Object? arguments]) async {
+    final Object? raw;
+    final argHandler = testInvokeHandler;
+    if (argHandler != null) {
+      raw = await argHandler(method, arguments);
+    } else {
+      if (!isNativePlatform) return null;
+      _nativeCallAttempts++;
+      try {
+        raw = await _channel.invokeMethod<Object?>(method, arguments);
+      } on MissingPluginException {
+        _missingPluginResponses++;
+        return null;
+      }
+    }
+    if (raw is! Map) return null;
+    return raw.map((k, v) => MapEntry(k.toString(), v));
+  }
+
   // ── Native-layer health (P0-1 loud-failure safety net) ─────────────────
   //
   // `MissingPluginException` specifically means "no plugin answered this

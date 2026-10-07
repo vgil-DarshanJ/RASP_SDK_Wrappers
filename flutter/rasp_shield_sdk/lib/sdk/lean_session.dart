@@ -11,7 +11,10 @@ import 'package:flutter/services.dart';
 
 import 'core/core.dart';
 import 'detectors/rasp_native_channel.dart';
+import 'fraud_risk.dart';
 import 'security_controls.dart';
+
+export 'fraud_risk.dart';
 
 class RaspLocationSnapshot {
   final double latitude;
@@ -128,6 +131,51 @@ class RaspLeanConfig {
   final Duration pollInterval;
   final Duration heartbeatInterval;
 
+  // Task 8.1 fraud signals — all off by default.
+  final bool otpInterceptionDetection;
+  final bool smsReaderAbuseDetection;
+
+  /// `otp_forwarding_risk` is a risk hint from the environment, never proof.
+  final bool otpForwardingDetection;
+  final bool remoteControlAppDetection;
+  final bool screenSharingDetection;
+
+  /// Notification-listener packages to trust (e.g. a wearable companion app).
+  final List<String> notificationListenerAllowlist;
+
+  /// `sms_reader_abuse`: packages allowed to hold SMS permissions.
+  final List<String> smsAppAllowlist;
+
+  /// `otp_forwarding_risk`: extra SMS auto-forward packages (declare them in
+  /// the app manifest's `<queries>`).
+  final List<String> autoForwardPackages;
+
+  /// `remote_control_app`: signed extra package list, same format as the
+  /// malware reputation list.
+  final String? remoteControlListJson;
+
+  /// Ed25519 key for [remoteControlListJson] (Base64, raw 32 bytes or SPKI).
+  final String? remoteControlListPublicKey;
+
+  // Task 8.1 session risk and transaction API — off by default.
+  /// Computes the session risk on every tick and enables
+  /// [RaspLeanSession.reportSession], [RaspLeanSession.reportTransaction] and
+  /// [RaspLeanSession.signTransaction].
+  final bool sessionRiskScoring;
+  final int riskMediumThreshold;
+  final int riskHighThreshold;
+
+  /// Also recommend step-up at or above this score; `null` = only at HIGH.
+  final int? stepUpThreshold;
+
+  /// Stricter profile for sensitive screens: step-up also at MEDIUM and
+  /// UNKNOWN. Can be changed with [RaspLeanSession.setHighRiskTransactionMode].
+  final bool highRiskTransactionMode;
+
+  /// Salt (hex) for the id hashes when the credential has no
+  /// `account_hash_salt`. Normally leave `null`: the issued credential has it.
+  final String? accountHashSalt;
+
   const RaspLeanConfig({
     this.screenshotProtection = false,
     this.usbDetection = false,
@@ -181,6 +229,22 @@ class RaspLeanConfig {
     this.useEvidenceEnvelope = false,
     this.pollInterval = const Duration(seconds: 4),
     this.heartbeatInterval = const Duration(seconds: 20),
+    this.otpInterceptionDetection = false,
+    this.smsReaderAbuseDetection = false,
+    this.otpForwardingDetection = false,
+    this.remoteControlAppDetection = false,
+    this.screenSharingDetection = false,
+    this.notificationListenerAllowlist = const [],
+    this.smsAppAllowlist = const [],
+    this.autoForwardPackages = const [],
+    this.remoteControlListJson,
+    this.remoteControlListPublicKey,
+    this.sessionRiskScoring = false,
+    this.riskMediumThreshold = 30,
+    this.riskHighThreshold = 60,
+    this.stepUpThreshold,
+    this.highRiskTransactionMode = false,
+    this.accountHashSalt,
   });
 
   Map<String, Object?> toNativeMap() => {
@@ -236,6 +300,22 @@ class RaspLeanConfig {
         'useEvidenceEnvelope': useEvidenceEnvelope,
         'pollIntervalMillis': pollInterval.inMilliseconds,
         'heartbeatIntervalMillis': heartbeatInterval.inMilliseconds,
+        'otpInterceptionDetection': otpInterceptionDetection,
+        'smsReaderAbuseDetection': smsReaderAbuseDetection,
+        'otpForwardingDetection': otpForwardingDetection,
+        'remoteControlAppDetection': remoteControlAppDetection,
+        'screenSharingDetection': screenSharingDetection,
+        'notificationListenerAllowlist': notificationListenerAllowlist,
+        'smsAppAllowlist': smsAppAllowlist,
+        'autoForwardPackages': autoForwardPackages,
+        'remoteControlListJson': remoteControlListJson,
+        'remoteControlListPublicKey': remoteControlListPublicKey,
+        'sessionRiskScoring': sessionRiskScoring,
+        'riskMediumThreshold': riskMediumThreshold,
+        'riskHighThreshold': riskHighThreshold,
+        'stepUpThreshold': stepUpThreshold,
+        'highRiskTransactionMode': highRiskTransactionMode,
+        'accountHashSalt': accountHashSalt,
       };
 }
 
@@ -246,12 +326,16 @@ class RaspLeanState {
   final RaspClipboardEvidence clipboardEvidence;
   final Map<String, DetectionResult> extendedDetectors;
 
+  /// Session risk from the last tick; `null` unless `sessionRiskScoring` is on.
+  final RaspSessionRisk? risk;
+
   const RaspLeanState({
     required this.screenshotActive,
     required this.usb,
     required this.clipboardActive,
     required this.clipboardEvidence,
     this.extendedDetectors = const {},
+    this.risk,
   });
 
   static const initial = RaspLeanState(
@@ -339,6 +423,92 @@ class RaspLeanSession {
   static Future<bool> resetSimBaseline() async =>
       await RaspNativeChannel.boolCall('resetSimBaseline') ?? false;
 
+  // ── Task 8.1: session risk and transaction API ───────────────────────
+
+  /// The session risk from the last tick; `null` until the first tick or when
+  /// `sessionRiskScoring` is off.
+  RaspSessionRisk? get risk => _current.risk;
+
+  /// Reports a login, resume or logout. The ids are pseudonymous values from
+  /// your app (never an email or phone number); the native engine hashes
+  /// them at once and never stores or sends them. Needs `sessionRiskScoring`
+  /// and a salt (from the credential). Throws [RaspFraudApiException].
+  Future<RaspSessionReport> reportSession({
+    required String accountId,
+    required String sessionId,
+    required RaspSessionEvent event,
+  }) async {
+    final raw = await _fraudCall('reportLeanSession', {
+      'accountId': accountId,
+      'sessionId': sessionId,
+      'event': event.name,
+    });
+    return RaspSessionReport(
+      accountHash: raw['accountHash'] as String,
+      sessionHash: raw['sessionHash'] as String,
+      event: RaspSessionEvent.values.firstWhere((e) => e.name == raw['event'], orElse: () => event),
+      risk: RaspSessionRisk.fromWire(raw['risk']),
+      sentToBackend: raw['sentToBackend'] == true,
+    );
+  }
+
+  /// Signs the transaction binding with the device key and reports the
+  /// transaction (hashes and the binding digest; the amount stays on the
+  /// device). [amount]: plain decimal string, e.g. `"1500.00"`; [currency]:
+  /// ISO 4217 (`INR`); [channel]: `[a-z0-9_-]{1,32}` (e.g. `upi`). Needs an
+  /// active session ([reportSession] with login). Throws [RaspFraudApiException].
+  Future<RaspTransactionReport> reportTransaction({
+    required String amount,
+    required String currency,
+    required String beneficiaryId,
+    required String channel,
+  }) async {
+    final raw = await _fraudCall('reportLeanTransaction', {
+      'amount': amount,
+      'currency': currency,
+      'beneficiaryId': beneficiaryId,
+      'channel': channel,
+    });
+    final transaction = raw['transaction'];
+    if (transaction is! Map) throw const RaspFraudApiException('UNAVAILABLE', 'Malformed native reply');
+    return RaspTransactionReport(
+      transaction: RaspSignedTransaction.fromWire(transaction.map((k, v) => MapEntry('$k', v))),
+      channel: raw['channel'] as String? ?? channel,
+      sentToBackend: raw['sentToBackend'] == true,
+    );
+  }
+
+  /// Signs the transaction binding only; nothing is sent. Throws
+  /// [RaspFraudApiException].
+  Future<RaspSignedTransaction> signTransaction({
+    required String amount,
+    required String currency,
+    required String beneficiaryId,
+  }) async {
+    final raw = await _fraudCall('signLeanTransaction', {
+      'amount': amount,
+      'currency': currency,
+      'beneficiaryId': beneficiaryId,
+    });
+    return RaspSignedTransaction.fromWire(raw);
+  }
+
+  /// Turns the stricter high-risk transaction profile on or off (e.g. while
+  /// a payment screen is open). The SDK only recommends; your app enforces.
+  Future<RaspSessionRisk> setHighRiskTransactionMode(bool enabled) async =>
+      RaspSessionRisk.fromWire(await _fraudCall('setLeanHighRiskTransactionMode', enabled));
+
+  Future<Map<String, Object?>> _fraudCall(String method, Object? arguments) async {
+    if (_disposed) throw const RaspFraudApiException('UNAVAILABLE', 'Session disposed');
+    try {
+      final raw = await RaspNativeChannel.mapCallOrThrow(method, arguments);
+      if (raw == null) throw const RaspFraudApiException('UNAVAILABLE', 'No native answer');
+      return raw;
+    } on PlatformException catch (e) {
+      throw RaspFraudApiException(e.code, e.message ?? e.code);
+    }
+  }
+
   /// How long [start] and [dispose] wait for a native call before moving on.
   static const nativeCallTimeout = Duration(seconds: 2);
 
@@ -402,6 +572,7 @@ class RaspLeanSession {
         lastChangeAt: null,
       ),
       extendedDetectors: extended,
+      risk: raw['risk'] is Map ? RaspSessionRisk.fromWire(raw['risk']) : null,
     );
   }
 
@@ -535,6 +706,12 @@ class RaspDetectorDescriptor {
     'task_hijack': RaspDetectorDescriptor(DetectorType.custom, ThreatCategory.appIntegrity, DetectionSeverity.high, 'Task Hijacking'),
     'device_state_attestation': RaspDetectorDescriptor(DetectorType.custom, ThreatCategory.deviceIntegrity, DetectionSeverity.high, 'Device State Attestation'),
     'malware_reputation': RaspDetectorDescriptor(DetectorType.riskyApp, ThreatCategory.deviceIntegrity, DetectionSeverity.critical, 'Known Malware Installed'),
+    // Task 8.1 fraud signals (same title, category and severity as the dashboard)
+    'otp_interception_risk': RaspDetectorDescriptor(DetectorType.custom, ThreatCategory.privacyScreen, DetectionSeverity.high, 'OTP Interception Risk'),
+    'sms_reader_abuse': RaspDetectorDescriptor(DetectorType.custom, ThreatCategory.privacyScreen, DetectionSeverity.high, 'SMS Reader Apps'),
+    'otp_forwarding_risk': RaspDetectorDescriptor(DetectorType.custom, ThreatCategory.privacyScreen, DetectionSeverity.medium, 'OTP Forwarding Risk (hint)'),
+    'remote_control_app': RaspDetectorDescriptor(DetectorType.riskyApp, ThreatCategory.privacyScreen, DetectionSeverity.high, 'Remote Control App'),
+    'screen_sharing_risk': RaspDetectorDescriptor(DetectorType.screenshot, ThreatCategory.privacyScreen, DetectionSeverity.high, 'Screen Sharing During App Use'),
   };
 }
 

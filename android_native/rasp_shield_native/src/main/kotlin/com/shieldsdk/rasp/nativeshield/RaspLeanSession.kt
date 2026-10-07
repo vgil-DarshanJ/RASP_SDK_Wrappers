@@ -9,3 +9,17 @@ public typealias RaspLeanConfig = com.shieldsdk.rasp.RaspLeanConfig
 public typealias RaspLeanState = com.shieldsdk.rasp.RaspLeanState
 public typealias RaspLeanStateListener = com.shieldsdk.rasp.RaspLeanStateListener
 public typealias RaspLocationSnapshot = com.shieldsdk.rasp.RaspLocationSnapshot
+
+// Task 8.1: session risk and transaction API. Call them on RaspLeanSession
+// (reportSession, reportTransaction, signTransaction, currentRisk,
+// setHighRiskTransactionMode) with RaspLeanConfig.sessionRiskScoring = true —
+// the same engine code the Flutter plugin calls.
+public typealias RaspSessionEvent = com.shieldsdk.rasp.RaspSessionEvent
+public typealias RaspRiskVerdict = com.shieldsdk.rasp.RaspRiskVerdict
+public typealias RaspRiskPolicy = com.shieldsdk.rasp.RaspRiskPolicy
+public typealias RaspRiskAssessment = com.shieldsdk.rasp.RaspRiskAssessment
+public typealias RaspRiskScore = com.shieldsdk.rasp.RaspRiskScore
+public typealias RaspSessionReport = com.shieldsdk.rasp.RaspSessionReport
+public typealias RaspSignedTransaction = com.shieldsdk.rasp.RaspSignedTransaction
+public typealias RaspTransactionReport = com.shieldsdk.rasp.RaspTransactionReport
+public typealias RaspAccountHasher = com.shieldsdk.rasp.RaspAccountHasher
