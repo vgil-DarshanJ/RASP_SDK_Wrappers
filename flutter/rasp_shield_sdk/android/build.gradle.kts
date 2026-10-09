@@ -110,7 +110,7 @@ dependencies {
 
     // The only external native dependency the moved detectors need — see
     // RaspPlayIntegrityBridge.kt.
-    implementation("com.google.android.play:integrity:1.4.0")
+    implementation("com.google.android.play:integrity:1.6.0")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
