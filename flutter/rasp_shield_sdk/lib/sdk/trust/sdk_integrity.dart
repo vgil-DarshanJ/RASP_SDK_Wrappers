@@ -40,8 +40,8 @@ import 'trust_inputs.dart';
 /// fixed input than the signed manifest declares — and that disagreement is
 /// exactly what this anchor reports. An attacker can still defeat this by
 /// *also* patching the canary comparison itself — this is a cost-raising
-/// control, not a guarantee, matching this milestone's explicit "increase
-/// attack cost, not promise unhackable" framing.
+/// control, not a guarantee: it raises the attack cost and promises nothing
+/// more.
 class SdkIntegrityManifest {
   /// Version of the manifest *shape*, not the SDK. Lets a future SDK version
   /// add new canary kinds without breaking an older SDK build reading an
