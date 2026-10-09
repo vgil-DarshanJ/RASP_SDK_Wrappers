@@ -1,7 +1,7 @@
 # RASP Shield — Flutter Integration Guide
 
 This walks through integrating the real, current SDK — `RaspLeanSession`,
-all 26 detectors, automatic event shipping to your RASP Shield dashboard —
+all 42 on-device detectors, automatic event shipping to your RASP Shield dashboard —
 into a Flutter app, step by step, showing exactly where each piece of code
 goes relative to what's already in a fresh Flutter project.
 
@@ -201,7 +201,7 @@ class _MyHomePageState extends State<MyHomePage> {
     }
 
     // Starts the background poll/ship loop. This is the ONLY place you
-    // choose which of the 26 detectors are active — see the table below
+    // choose which of the 42 detectors are active — see the table below
     // for what each one does and what you're exposed to if you skip it.
     _raspSession = await RaspLeanSession.start(const RaspLeanConfig(
       screenshotProtection: true,
@@ -275,7 +275,7 @@ duplicate that table for the same reason.
 
 ## Exception-handling contract — read this once, it explains "will it crash"
 
-1. **Three states, never two.** Every detector reports
+1. **Five states, never two.** Every detector reports
    `SECURE` / `DETECTED` / `UNAVAILABLE` / `UNKNOWN` / `ERROR` — never a
    plain boolean. `UNAVAILABLE`/`UNKNOWN`/`ERROR` mean *"could not
    determine,"* never *"safe."* If you write your own logic against
@@ -285,7 +285,7 @@ duplicate that table for the same reason.
 2. **Every detector is crash-isolated.** A detector throwing internally is
    caught and reported as `ERROR`, never an uncaught exception that could
    crash your app — this is enforced by a single wrapper
-   (`runGuarded` in `RaspShieldCore.kt`) every one of the 26 detectors
+   (`runGuarded` in `RaspShieldCore.kt`) every one of the 42 detectors
    goes through.
 3. **Shipping never blocks or crashes your app.** `RaspSecurityEventShipper`
    sends each event fire-and-forget on its own background execution path.

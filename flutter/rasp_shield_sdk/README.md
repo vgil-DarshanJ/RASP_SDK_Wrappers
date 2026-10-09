@@ -1,15 +1,20 @@
 # rasp_shield_sdk
 
-A new Flutter plugin project.
+RASP Shield for Flutter apps on **Android**: 42 on-device security checks
+(root, emulator, hooking, tampering, network interception, screen and
+fraud signals) through the Kotlin engine, with signed delivery of the
+results to a RASP Shield dashboard. iOS is not supported.
 
-## Getting Started
+- Integration: [docs/LEAN_SECURITY_INTEGRATION_GUIDE.md](docs/LEAN_SECURITY_INTEGRATION_GUIDE.md)
+- Facts (detector list, states, versions, minimum Android): `docs/PRODUCT_FACTS.md`
+  in the engine repository
 
-This project is a starting point for a Flutter
-[plug-in package](https://flutter.dev/to/develop-plugins),
-a specialized package that includes platform-specific implementation code for
-Android and/or iOS.
+## Supported API
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Use `package:rasp_shield/sdk/lean_session.dart` (`RaspLeanSession`,
+`RaspLeanConfig`), `sdk/security_controls.dart`,
+`sdk/events/security_event_shipper.dart`, `sdk/fraud_risk.dart` and
+`sdk/core/core.dart`. The other libraries under `lib/` (licensing,
+activation, vault, remote commands — the older "full path") are not part of
+the supported API and are not maintained for production use.
 

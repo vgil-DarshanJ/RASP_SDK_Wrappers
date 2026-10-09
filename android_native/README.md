@@ -1,8 +1,9 @@
 # RASP Shield Native — Kotlin/Java Android SDK (no Flutter)
 
-Full detector-catalog parity with the Flutter plugin — 26 detectors across
-device integrity, runtime protection, app integrity, network security,
-privacy/screen, and risky-app intelligence — plus Play Integrity
+Full detector-catalog parity with the Flutter plugin — 42 on-device detectors
+across device integrity, runtime protection, app integrity, network security,
+privacy/screen, fraud signals and risky-app intelligence (the list:
+`docs/PRODUCT_FACTS.md` in the engine repository) — plus Play Integrity
 attestation. Zero license, zero activation, zero Flutter dependency.
 
 This guide shows the recommended path: `RaspLeanSession`, the same
@@ -155,7 +156,7 @@ class YourApplication : Application() {
         }
 
         // Starts the background poll/ship loop — the only place you
-        // choose which of the 26 detectors are active. See your
+        // choose which of the 42 detectors are active. See your
         // dashboard's /guide page for the full detector table and what
         // you're exposed to if you leave one off.
         RaspLeanSession.start(
