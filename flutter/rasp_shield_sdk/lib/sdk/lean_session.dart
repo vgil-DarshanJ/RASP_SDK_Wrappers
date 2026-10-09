@@ -720,9 +720,11 @@ class RaspLeanSession {
 /// Display name, category and severity for a native engine detector id.
 ///
 /// Every id the Kotlin engine can report (its lean-session detectors and the
-/// four basic controls) has an entry here; titles, categories and severities
-/// for the entries added since Task 3 follow the dashboard's catalog
-/// (`FE/lib/alertCatalog.ts`). An id without an entry gets [generic]
+/// four basic controls) has an entry here; titles and categories follow the
+/// dashboard's catalog (`FE/lib/alertCatalog.ts`), severities the backend's
+/// table (`BE/src/detectors/severity.ts`, exported to
+/// test/fixtures/detector_severities.json; `test/detector_severity_test.dart`
+/// fails on any difference, F-26). An id without an entry gets [generic]
 /// ("Security Check") — `test/detector_descriptor_test.dart` fails if any
 /// engine id does.
 class RaspDetectorDescriptor {
@@ -751,8 +753,8 @@ class RaspDetectorDescriptor {
     'adb_enabled': RaspDetectorDescriptor(DetectorType.custom, ThreatCategory.deviceIntegrity, DetectionSeverity.medium, 'USB Debugging (ADB)'),
     'clipboard_protection': RaspDetectorDescriptor(DetectorType.custom, ThreatCategory.privacyScreen, DetectionSeverity.low, 'Clipboard Protection'),
     // Device integrity
-    'root_jailbreak': RaspDetectorDescriptor(DetectorType.root, ThreatCategory.deviceIntegrity, DetectionSeverity.high, 'Root / Jailbreak'),
-    'emulator': RaspDetectorDescriptor(DetectorType.emulator, ThreatCategory.deviceIntegrity, DetectionSeverity.high, 'Emulator'),
+    'root_jailbreak': RaspDetectorDescriptor(DetectorType.root, ThreatCategory.deviceIntegrity, DetectionSeverity.critical, 'Root / Jailbreak'),
+    'emulator': RaspDetectorDescriptor(DetectorType.emulator, ThreatCategory.deviceIntegrity, DetectionSeverity.medium, 'Emulator'),
     'device_binding': RaspDetectorDescriptor(DetectorType.custom, ThreatCategory.deviceIntegrity, DetectionSeverity.high, 'Device Binding'),
     'clone': RaspDetectorDescriptor(DetectorType.custom, ThreatCategory.deviceIntegrity, DetectionSeverity.high, 'App Clone / Dual Space'),
     'developer_mode': RaspDetectorDescriptor(DetectorType.custom, ThreatCategory.deviceIntegrity, DetectionSeverity.low, 'Developer Mode'),
@@ -761,8 +763,8 @@ class RaspDetectorDescriptor {
     'device_fingerprint': RaspDetectorDescriptor(DetectorType.custom, ThreatCategory.deviceIntegrity, DetectionSeverity.medium, 'Device Fingerprint'),
     // Runtime protection
     'frida': RaspDetectorDescriptor(DetectorType.frida, ThreatCategory.runtimeProtection, DetectionSeverity.critical, 'Frida'),
-    'debugger': RaspDetectorDescriptor(DetectorType.debugger, ThreatCategory.runtimeProtection, DetectionSeverity.high, 'Debugger'),
-    'hook_detection': RaspDetectorDescriptor(DetectorType.hook, ThreatCategory.runtimeProtection, DetectionSeverity.high, 'Hook Detection'),
+    'debugger': RaspDetectorDescriptor(DetectorType.debugger, ThreatCategory.runtimeProtection, DetectionSeverity.medium, 'Debugger'),
+    'hook_detection': RaspDetectorDescriptor(DetectorType.hook, ThreatCategory.runtimeProtection, DetectionSeverity.critical, 'Hook Detection'),
     're_tools': RaspDetectorDescriptor(DetectorType.reverseEngineeringTools, ThreatCategory.runtimeProtection, DetectionSeverity.high, 'Reverse Engineering Tools'),
     'risky_app': RaspDetectorDescriptor(DetectorType.riskyApp, ThreatCategory.other, DetectionSeverity.high, 'Risky Application / Environment'),
     // App integrity
@@ -770,12 +772,12 @@ class RaspDetectorDescriptor {
     'repackage': RaspDetectorDescriptor(DetectorType.repackage, ThreatCategory.appIntegrity, DetectionSeverity.high, 'Repackaging'),
     'untrusted_install_source': RaspDetectorDescriptor(DetectorType.custom, ThreatCategory.appIntegrity, DetectionSeverity.high, 'Installation Source'),
     // Network security
-    'vpn': RaspDetectorDescriptor(DetectorType.vpn, ThreatCategory.networkSecurity, DetectionSeverity.medium, 'VPN'),
+    'vpn': RaspDetectorDescriptor(DetectorType.vpn, ThreatCategory.networkSecurity, DetectionSeverity.low, 'VPN'),
     'mitm': RaspDetectorDescriptor(DetectorType.proxy, ThreatCategory.networkSecurity, DetectionSeverity.high, 'MITM / Proxy'),
     'high_risk_ip': RaspDetectorDescriptor(DetectorType.highRiskIp, ThreatCategory.networkSecurity, DetectionSeverity.medium, 'High-risk IP'),
     // Privacy & screen
-    'overlay': RaspDetectorDescriptor(DetectorType.overlay, ThreatCategory.privacyScreen, DetectionSeverity.high, 'Overlay'),
-    'accessibility': RaspDetectorDescriptor(DetectorType.accessibility, ThreatCategory.privacyScreen, DetectionSeverity.high, 'Accessibility Abuse'),
+    'overlay': RaspDetectorDescriptor(DetectorType.overlay, ThreatCategory.privacyScreen, DetectionSeverity.medium, 'Overlay'),
+    'accessibility': RaspDetectorDescriptor(DetectorType.accessibility, ThreatCategory.privacyScreen, DetectionSeverity.medium, 'Accessibility Abuse'),
     'external_display': RaspDetectorDescriptor(DetectorType.custom, ThreatCategory.privacyScreen, DetectionSeverity.medium, 'External Display / Mirroring'),
     'screenshot_event': RaspDetectorDescriptor(DetectorType.screenshot, ThreatCategory.privacyScreen, DetectionSeverity.medium, 'Screenshot Event'),
     // Task 3a-3c (same title, category and severity as the dashboard)
