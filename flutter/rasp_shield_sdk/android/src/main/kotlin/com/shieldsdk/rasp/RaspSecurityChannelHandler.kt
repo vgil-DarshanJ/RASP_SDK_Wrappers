@@ -1683,7 +1683,7 @@ internal class RaspSecurityChannelHandler(
             malwareReputationDetection = enabled("malwareReputationDetection"),
             malwareReputationListJson = values["malwareReputationListJson"] as? String,
             malwareReputationPublicKey = values["malwareReputationPublicKey"] as? String,
-            useEvidenceEnvelope = enabled("useEvidenceEnvelope"),
+            useEvidenceEnvelope = values["useEvidenceEnvelope"] as? Boolean ?: true, // default on (F-14)
             pollIntervalMillis = millis("pollIntervalMillis", 4_000),
             heartbeatIntervalMillis = millis("heartbeatIntervalMillis", 20_000),
             locationHeartbeatIntervalMillis = millis("locationHeartbeatIntervalMillis", 60_000),

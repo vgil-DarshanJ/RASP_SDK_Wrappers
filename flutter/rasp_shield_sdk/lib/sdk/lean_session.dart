@@ -127,7 +127,9 @@ class RaspLeanConfig {
 
   /// Ed25519 public key that signs the list (Base64, raw 32 bytes or SPKI).
   final String? malwareReputationPublicKey;
-  /// Enable Evidence Envelope path (device-key signed, replay-resistant) instead of legacy HMAC. Default off.
+  /// Signed Evidence Envelopes (device key, replay-resistant) instead of the
+  /// legacy HMAC path. Default on: new backend applications accept envelopes
+  /// only (F-14). Set false only for an old backend.
   final bool useEvidenceEnvelope;
   final Duration pollInterval;
   final Duration heartbeatInterval;
@@ -237,7 +239,7 @@ class RaspLeanConfig {
     this.malwareReputationDetection = false,
     this.malwareReputationListJson,
     this.malwareReputationPublicKey,
-    this.useEvidenceEnvelope = false,
+    this.useEvidenceEnvelope = true,
     this.pollInterval = const Duration(seconds: 4),
     this.heartbeatInterval = const Duration(seconds: 20),
     this.locationHeartbeatInterval = const Duration(seconds: 60),
