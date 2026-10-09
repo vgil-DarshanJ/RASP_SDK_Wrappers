@@ -127,6 +127,11 @@ class RaspLeanConfig {
 
   /// Ed25519 public key that signs the list (Base64, raw 32 bytes or SPKI).
   final String? malwareReputationPublicKey;
+
+  /// Keep the list current from the backend (`GET /v1/reputation/list`, once
+  /// a day). The list must verify with [malwareReputationPublicKey], or else
+  /// with the credential's `reputation_public_key`. Default off.
+  final bool malwareReputationAutoUpdate;
   /// Signed Evidence Envelopes (device key, replay-resistant) instead of the
   /// legacy HMAC path. Default on: new backend applications accept envelopes
   /// only (F-14). Set false only for an old backend.
@@ -239,6 +244,7 @@ class RaspLeanConfig {
     this.malwareReputationDetection = false,
     this.malwareReputationListJson,
     this.malwareReputationPublicKey,
+    this.malwareReputationAutoUpdate = false,
     this.useEvidenceEnvelope = true,
     this.pollInterval = const Duration(seconds: 4),
     this.heartbeatInterval = const Duration(seconds: 20),
@@ -311,6 +317,7 @@ class RaspLeanConfig {
         'malwareReputationDetection': malwareReputationDetection,
         'malwareReputationListJson': malwareReputationListJson,
         'malwareReputationPublicKey': malwareReputationPublicKey,
+        'malwareReputationAutoUpdate': malwareReputationAutoUpdate,
         'useEvidenceEnvelope': useEvidenceEnvelope,
         'pollIntervalMillis': pollInterval.inMilliseconds,
         'heartbeatIntervalMillis': heartbeatInterval.inMilliseconds,

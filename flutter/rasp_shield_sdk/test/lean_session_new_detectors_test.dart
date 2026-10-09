@@ -66,6 +66,8 @@ void main() {
     expect(offMap['maxSecurityPatchAgeDays'], isNull);
     expect(offMap['malwareReputationListJson'], isNull);
     expect(offMap['malwareReputationPublicKey'], isNull);
+    expect(offMap['malwareReputationAutoUpdate'], isFalse);
+    expect(offMap['useEvidenceEnvelope'], isTrue, reason: 'signed envelopes are the default (F-14)');
 
     final on = const RaspLeanConfig(
       deviceStateAttestationDetection: true,
@@ -73,7 +75,9 @@ void main() {
       malwareReputationDetection: true,
       malwareReputationListJson: '{"payload":"{}","signature":"x"}',
       malwareReputationPublicKey: 'MCowBQYDK2VwAyEA',
+      malwareReputationAutoUpdate: true,
     ).toNativeMap();
+    expect(on['malwareReputationAutoUpdate'], isTrue);
     expect(on['deviceStateAttestationDetection'], isTrue);
     expect(on['maxSecurityPatchAgeDays'], 120);
     expect(on['malwareReputationDetection'], isTrue);
