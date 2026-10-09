@@ -141,10 +141,13 @@ class RaspHookAnalysisTest {
     // ── Multiple signals / thresholds ─────────────────────────────────────
 
     @Test
-    fun `a hooked native method convicts on its own and is critical`() {
-        val signals = listOf("hook_native_method")
-        assertTrue(RaspHookAnalysis.hookVerdict(signals))
-        assertEquals("critical", RaspHookAnalysis.severityFor(signals))
+    fun `a hooked native method is soft - alone it does not convict, with another soft signal it does`() {
+        // Soft since the reflection check fired on obfuscated / ART-optimized builds (engine RaspHookAnalysis).
+        assertFalse(RaspHookAnalysis.hookVerdict(listOf("hook_native_method")))
+        assertEquals("none", RaspHookAnalysis.severityFor(listOf("hook_native_method")))
+        val corroborated = listOf("hook_native_method", "hook_rwx_mapping")
+        assertTrue(RaspHookAnalysis.hookVerdict(corroborated))
+        assertEquals("medium", RaspHookAnalysis.severityFor(corroborated))
     }
 
     @Test
@@ -168,9 +171,9 @@ class RaspHookAnalysisTest {
     }
 
     @Test
-    fun `exactly the two documented signals are soft`() {
+    fun `exactly the three documented signals are soft`() {
         assertEquals(
-            setOf("hook_rwx_mapping", "hook_suspicious_lib_path"),
+            setOf("hook_rwx_mapping", "hook_suspicious_lib_path", "hook_native_method"),
             RaspHookAnalysis.softHookSignals,
         )
     }
@@ -191,6 +194,8 @@ class RaspHookAnalysisTest {
     @Test
     fun `a hard signal outranks soft ones in severity`() {
         assertEquals("critical", RaspHookAnalysis.severityFor(
+            listOf("hook_framework_lib", "hook_native_method")))
+        assertEquals("medium", RaspHookAnalysis.severityFor(
             listOf("hook_rwx_mapping", "hook_native_method")))
     }
 

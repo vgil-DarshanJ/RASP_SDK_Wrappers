@@ -48,8 +48,8 @@ class RaspEmulatorAnalysisTest {
     /**
      * A budget handset that ships `Build.MANUFACTURER` as `"unknown"`.
      *
-     * This is the case the hard/soft threshold exists for: it fires
-     * `build_manufacturer`, and that single soft signal must not convict.
+     * The engine no longer treats `"unknown"` as an emulator sign at all
+     * (engine commit 28ac511, false-positive removal), so no Build signal fires.
      */
     private val budgetUnknownManufacturer = RaspEmulatorAnalysis.BuildProfile.fromRaw(
         fingerprint = "alps/full_k62v1_64/k62v1_64:11/RP1A.200720.011/1620:user/release-keys",
@@ -112,8 +112,7 @@ class RaspEmulatorAnalysisTest {
     fun `a budget handset reporting manufacturer 'unknown' is NOT blocked`() {
         // The exact false positive the hard/soft split exists to prevent.
         val signals = RaspEmulatorAnalysis.buildFieldSignals(budgetUnknownManufacturer)
-        assertEquals("only the manufacturer signal should fire",
-            listOf("build_manufacturer"), signals)
+        assertEquals("'unknown' is not an emulator sign", emptyList<String>(), signals)
         assertFalse(
             "one soft Build field must never convict a real device",
             RaspEmulatorAnalysis.isEmulator(signals),
@@ -184,12 +183,15 @@ class RaspEmulatorAnalysisTest {
 
     @Test
     fun `fingerprint predicate covers the known emulator shapes`() {
-        listOf("generic/x", "vbox", "emulator", "sdk_gphone", "unknown").forEach { frag ->
+        listOf("generic/x", "vbox", "emulator", "sdk_gphone").forEach { frag ->
             val p = RaspEmulatorAnalysis.BuildProfile.fromRaw(
                 frag, "", "", "", "", "", "")
             assertTrue("'$frag' should trip the fingerprint check",
                 RaspEmulatorAnalysis.buildFingerprintIndicatesEmulator(p))
         }
+        // Some budget handsets report 'unknown' fields; not an emulator sign (engine 28ac511).
+        assertFalse(RaspEmulatorAnalysis.buildFingerprintIndicatesEmulator(
+            RaspEmulatorAnalysis.BuildProfile.fromRaw("unknown", "", "", "", "", "", "")))
     }
 
     @Test

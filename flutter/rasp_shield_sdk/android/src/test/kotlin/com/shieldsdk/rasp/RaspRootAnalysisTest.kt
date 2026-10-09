@@ -173,13 +173,13 @@ class RaspRootAnalysisTest {
 
     @Test
     fun `detection does not rely on package names alone`() {
-        // The brief's explicit requirement. Packages are 2 of 11 signal
+        // The brief's explicit requirement. Packages are 2 of 9 signal
         // families; the rest are filesystem, PATH, props, mounts and BusyBox.
         val packageBased = setOf("root_manager_app", "root_cloaking_app")
         val nonPackage = RaspRootAnalysis.allSignalIds.filterNot { it in packageBased }
         assertTrue(
             "most root signals must be independent of package lookup",
-            nonPackage.size >= 8,
+            nonPackage.size >= 7,
         )
     }
 
@@ -191,10 +191,13 @@ class RaspRootAnalysisTest {
     }
 
     @Test
-    fun `the signal id set is exactly the eleven documented ids`() {
+    fun `the signal id set is exactly the nine documented ids, posture signals apart`() {
         // Guards the wire contract: an id the backend does not know is scored
         // as nothing, so silently adding or renaming one is a real defect.
-        assertEquals(11, RaspRootAnalysis.allSignalIds.size)
+        // test_keys and ro_debuggable are posture signals since the engine's
+        // false-positive fix; they never reach the root verdict.
+        assertEquals(9, RaspRootAnalysis.allSignalIds.size)
+        assertTrue(RaspRootAnalysis.posturesSignalIds.none { it in RaspRootAnalysis.allSignalIds })
         assertEquals(
             RaspRootAnalysis.allSignalIds.size,
             RaspRootAnalysis.allSignalIds.toSet().size,
