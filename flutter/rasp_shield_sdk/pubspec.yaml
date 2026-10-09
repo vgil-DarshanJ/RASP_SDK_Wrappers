@@ -21,7 +21,7 @@ dependencies:
   # detectors/ios_fallback.dart — a host app that wants that iOS fallback
   # registers its own IosFallbackDetector (rasp_app's is still backed by
   # safe_device, in its own pubspec.yaml, not this SDK's).
-  device_info_plus: ^10.1.0
+  device_info_plus: ">=10.1.0 <13.0.0"
   dio: ^5.7.0
   flutter_secure_storage: ^9.2.2
   package_info_plus: ^8.1.0
