@@ -1,0 +1,16 @@
+# Dependency updates (F-28 / R-20): weekly pull requests for the Flutter
+# plugin (pub, Gradle) and the pinned GitHub Actions.
+version: 2
+updates:
+  - package-ecosystem: pub
+    directory: /flutter/rasp_shield_sdk
+    schedule:
+      interval: weekly
+  - package-ecosystem: gradle
+    directory: /flutter/rasp_shield_sdk/android
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
