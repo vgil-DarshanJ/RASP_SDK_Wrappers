@@ -36,11 +36,14 @@
 /// once — so a customer embedding the SDK supplies their own endpoint and never
 /// inherits this value.
 class BackendConfig {
-  /// Root origin of the RASP backend, with no trailing slash.
-  static const String baseUrl = String.fromEnvironment(
-    'RASP_BACKEND_URL',
-    defaultValue: 'http://164.52.211.208:7010',
-  );
+  /// Root origin of the RASP backend, with no trailing slash. Empty unless
+  /// the build passes `--dart-define=RASP_BACKEND_URL=https://…`: no server
+  /// address (and no cleartext default) is compiled into the package (F-21),
+  /// so an unconfigured build reaches no backend at all.
+  static const String baseUrl = String.fromEnvironment('RASP_BACKEND_URL');
+
+  /// Whether a backend origin was supplied at build time.
+  static bool get isConfigured => baseUrl.isNotEmpty;
 
   /// Versioned API prefix used by the security + chat endpoints.
   static const String securityApiBaseUrl = '$baseUrl/api/v1';
