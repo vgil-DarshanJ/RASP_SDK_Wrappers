@@ -24,7 +24,7 @@ dependencies:
   device_info_plus: ^10.1.0
   dio: ^5.7.0
   flutter_secure_storage: ^9.2.2
-  package_info_plus: ^8.1.0
+  package_info_plus: ">=8.1.0 <10.0.0"
   crypto: ^3.0.6
   # Kept: needs no runtime permission and no battery/location API — see
   # LocationManager's own doc for what this SDK does and does not use it for.
