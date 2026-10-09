@@ -9,7 +9,7 @@
 * Descriptor severities follow the backend table.
 * Kotlin unit tests updated to the engine's current detector rules.
 
-## 1.0.0
+## Earlier
 
-* First lean-session release: Kotlin engine detectors, five result states,
-  event shipping to the dashboard.
+* Development builds only (`1.1.0-local` against the engine in the local
+  Maven repository); no release was published before 1.1.0.
