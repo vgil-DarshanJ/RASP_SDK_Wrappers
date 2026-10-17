@@ -11,12 +11,22 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-val raspEngineVersion = providers.gradleProperty("raspEngineVersion").orElse("1.1.0-local").get()
+// A release ("1.1.0") comes from JitPack as com.github.vgil-DarshanJ:RASP_SDK_1:v1.1.0;
+// a "-local" version ("1.1.0-local") is the engine published to mavenLocal from
+// rashield-sdk-publish/ for engine development.
+val raspEngineVersion = providers.gradleProperty("raspEngineVersion").orElse("1.1.0").get()
+val raspEngineDependency =
+    if (raspEngineVersion.endsWith("-local")) "com.shieldsdk.rasp:android-core:$raspEngineVersion"
+    else "com.github.vgil-DarshanJ:RASP_SDK_1:v$raspEngineVersion"
 
 repositories {
     google()
     mavenCentral()
     mavenLocal()
+    maven {
+        url = uri("https://jitpack.io")
+        content { includeGroup("com.github.vgil-DarshanJ") }
+    }
     // Published home of android_core — see the dependencies block below.
     // Covers THIS module's own build only — see that block's doc for why
     // a consuming app must add this same line to its own root build file.
@@ -49,7 +59,7 @@ dependencies {
     // `api` so a consuming native app can call com.shieldsdk.rasp.* classes
     // directly without an extra dependency declaration of its own.
     //
-    // Resolved via JitPack (com.github.Vedant0Nisar:RaShield-SDK) rather
+    // Resolved via JitPack (com.github.vgil-DarshanJ:RASP_SDK_1) rather
     // than `project(":android_core")` — see the Flutter plugin's own
     // build.gradle.kts for the full reasoning; identical here. A consuming
     // native Android app needs this one dependency line PLUS the JitPack
@@ -57,5 +67,5 @@ dependencies {
     // repositories block) — no android_core source to download or wire
     // in as a sibling Gradle module anymore, which is the actual
     // improvement over the old project(":android_core") approach.
-    api("com.shieldsdk.rasp:android-core:$raspEngineVersion")
+    api(raspEngineDependency)
 }

@@ -1,7 +1,7 @@
 // RASP Shield — React Native Android module.
 //
 // Holds NO detection logic of its own. Every detector lives in android_core
-// (com.github.Vedant0Nisar:RaShield-SDK, published via JitPack) — the exact
+// (com.github.vgil-DarshanJ:RASP_SDK_1, published via JitPack) — the exact
 // same engine the Flutter plugin and the Android Native SDK depend on, so a
 // fix lands once and reaches all three SDKs identically.
 //
@@ -109,7 +109,7 @@ rootProject.allprojects { p ->
     p.repositories {
         maven {
             url "https://jitpack.io"
-            content { includeGroup "com.github.Vedant0Nisar" }
+            content { includeGroup "com.github.vgil-DarshanJ" }
         }
     }
 }
@@ -119,7 +119,7 @@ repositories {
     mavenCentral()
     maven {
         url "https://jitpack.io"
-        content { includeGroup "com.github.Vedant0Nisar" }
+        content { includeGroup "com.github.vgil-DarshanJ" }
     }
 }
 
@@ -128,5 +128,5 @@ dependencies {
     // The shared detection engine — root/Frida/hook/tamper/MITM/overlay and
     // every other detector, plus the HMAC-signed event shipper. `api` so an
     // app can also call com.shieldsdk.rasp.* directly from its own Kotlin.
-    api "com.github.Vedant0Nisar:RaShield-SDK:v1.0.5"
+    api "com.github.vgil-DarshanJ:RASP_SDK_1:v1.1.0"
 }

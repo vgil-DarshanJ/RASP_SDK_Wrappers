@@ -1,7 +1,13 @@
 group = "com.shieldsdk.rasp"
 version = "1.1.0-local"
 
-val raspEngineVersion = providers.gradleProperty("raspEngineVersion").orElse("1.1.0-local").get()
+// A release ("1.1.0") comes from JitPack as com.github.vgil-DarshanJ:RASP_SDK_1:v1.1.0;
+// a "-local" version ("1.1.0-local") is the engine published to mavenLocal from
+// rashield-sdk-publish/ for engine development.
+val raspEngineVersion = providers.gradleProperty("raspEngineVersion").orElse("1.1.0").get()
+val raspEngineDependency =
+    if (raspEngineVersion.endsWith("-local")) "com.shieldsdk.rasp:android-core:$raspEngineVersion"
+    else "com.github.vgil-DarshanJ:RASP_SDK_1:v$raspEngineVersion"
 
 plugins {
     id("com.android.library")
@@ -12,8 +18,12 @@ repositories {
     google()
     mavenCentral()
     mavenLocal()
+    maven {
+        url = uri("https://jitpack.io")
+        content { includeGroup("com.github.vgil-DarshanJ") }
+    }
     // Published home of android_core (see the dependencies block below) —
-    // https://github.com/Vedant0Nisar/RaShield-SDK. Declared here so THIS
+    // https://github.com/vgil-DarshanJ/RASP_SDK_1. Declared here so THIS
     // module's own build (its unit/instrumented tests, standalone
     // compile-verification, etc.) resolves it. This does NOT, by itself,
     // cover a consuming app's build: Gradle resolves a project
@@ -97,7 +107,7 @@ dependencies {
     // too.
     //
     // Resolved as a real published artifact via JitPack
-    // (com.github.Vedant0Nisar:RaShield-SDK — source lives at
+    // (com.github.vgil-DarshanJ:RASP_SDK_1 — source lives at
     // rashield-sdk-publish/, the only copy now) rather than
     // `project(":android_core")` — a
     // source-folder reference that required every consuming app to clone
@@ -106,7 +116,7 @@ dependencies {
     // any other RASP vendor's SDK integrates, and it's not how this one
     // does anymore: a consuming app now needs nothing beyond this
     // dependency, exactly like any other third-party Android library.
-    api("com.shieldsdk.rasp:android-core:$raspEngineVersion")
+    api(raspEngineDependency)
 
     // The only external native dependency the moved detectors need — see
     // RaspPlayIntegrityBridge.kt.
