@@ -28,6 +28,7 @@
     "otp_interception_risk": "high",
     "overlay": "medium",
     "re_tools": "high",
+    "remote_config_rejected": "high",
     "remote_control_app": "high",
     "repackage": "high",
     "risky_app": "high",

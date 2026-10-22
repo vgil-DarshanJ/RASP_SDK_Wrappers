@@ -194,6 +194,31 @@ class RaspLeanConfig {
   /// `account_hash_salt`. Normally leave `null`: the issued credential has it.
   final String? accountHashSalt;
 
+  /// How often the auto-updated malware list is refreshed, in hours (1..168).
+  final int malwareReputationRefreshHours;
+
+  // Task 10.0 signed remote configuration — off by default.
+  /// Fetch and apply the backend's signed remote configuration
+  /// (`GET /v1/config`). It is accepted only when its Ed25519 signature
+  /// verifies (credential `config_public_key`, or [remoteConfigPublicKey]),
+  /// it is for this app, not expired, and newer than the last one; a refused
+  /// config is reported as `remote_config_rejected`. It can change
+  /// intervals, risk thresholds and the detectors listed in
+  /// [remoteManagedDetectors] only — never the backend URL, credential,
+  /// keys, envelopes or TLS pins. Status and version are in
+  /// [RaspLeanState.remoteConfigStatus] / [RaspLeanState.remoteConfigVersion].
+  final bool remoteConfigEnabled;
+
+  /// The ceiling: detector ids (e.g. `root_jailbreak`) a remote config may
+  /// switch on or off. Default empty = none.
+  final Set<String> remoteManagedDetectors;
+
+  /// Minutes between remote-config checks (5..1440, with jitter).
+  final int remoteConfigPollMinutes;
+
+  /// Optional app-pinned public key for the remote config (Base64); else the credential's.
+  final String? remoteConfigPublicKey;
+
   const RaspLeanConfig({
     this.screenshotProtection = false,
     this.usbDetection = false,
@@ -265,6 +290,11 @@ class RaspLeanConfig {
     this.stepUpThreshold,
     this.highRiskTransactionMode = false,
     this.accountHashSalt,
+    this.malwareReputationRefreshHours = 24,
+    this.remoteConfigEnabled = false,
+    this.remoteManagedDetectors = const {},
+    this.remoteConfigPollMinutes = 15,
+    this.remoteConfigPublicKey,
   });
 
   Map<String, Object?> toNativeMap() => {
@@ -338,6 +368,11 @@ class RaspLeanConfig {
         'stepUpThreshold': stepUpThreshold,
         'highRiskTransactionMode': highRiskTransactionMode,
         'accountHashSalt': accountHashSalt,
+        'malwareReputationRefreshHours': malwareReputationRefreshHours,
+        'remoteConfigEnabled': remoteConfigEnabled,
+        'remoteManagedDetectors': (remoteManagedDetectors.toList()..sort()),
+        'remoteConfigPollMinutes': remoteConfigPollMinutes,
+        'remoteConfigPublicKey': remoteConfigPublicKey,
       };
 }
 
@@ -397,6 +432,36 @@ class RaspLocationHeartbeatStatus {
   }
 }
 
+/// Where the signed remote configuration stands (Task 10.0).
+enum RaspRemoteConfigStatus {
+  /// `remoteConfigEnabled` is off.
+  off,
+
+  /// No credential or no config public key: nothing can be verified.
+  unavailable,
+
+  /// Nothing received yet, or nothing published; the app's own config applies.
+  waiting,
+
+  /// A verified config is applied.
+  applied,
+
+  /// The last config received was refused; the last good one (or the app's own) still applies.
+  rejected,
+
+  /// The stored config expired; the app's own config applies again.
+  expired;
+
+  static RaspRemoteConfigStatus fromWire(Object? raw) => switch (raw) {
+        'UNAVAILABLE' => unavailable,
+        'WAITING' => waiting,
+        'APPLIED' => applied,
+        'REJECTED' => rejected,
+        'EXPIRED' => expired,
+        _ => off,
+      };
+}
+
 class RaspLeanState {
   final bool? screenshotActive;
   final RaspUsbState usb;
@@ -410,6 +475,10 @@ class RaspLeanState {
   /// Delivery result of the last location heartbeat; `null` until one was sent.
   final RaspLocationHeartbeatStatus? locationHeartbeat;
 
+  /// Version of the applied remote config; `null` when none (Task 10.0).
+  final int? remoteConfigVersion;
+  final RaspRemoteConfigStatus remoteConfigStatus;
+
   const RaspLeanState({
     required this.screenshotActive,
     required this.usb,
@@ -418,6 +487,8 @@ class RaspLeanState {
     this.extendedDetectors = const {},
     this.risk,
     this.locationHeartbeat,
+    this.remoteConfigVersion,
+    this.remoteConfigStatus = RaspRemoteConfigStatus.off,
   });
 
   static const initial = RaspLeanState(
@@ -612,6 +683,12 @@ class RaspLeanSession {
     if (!_disposed) await RaspNativeChannel.boolCall('refreshLeanSession');
   }
 
+  /// Checks the backend for a new remote config now (in the background).
+  /// No-op unless `remoteConfigEnabled`; the result arrives in [states].
+  Future<void> refreshRemoteConfigNow() async {
+    if (!_disposed) await RaspNativeChannel.boolCall('refreshLeanRemoteConfig');
+  }
+
   void _onNativeState(dynamic raw) {
     if (_disposed || raw is! Map) return;
     final state = _decodeState(raw.map((key, value) => MapEntry('$key', value)));
@@ -656,6 +733,8 @@ class RaspLeanSession {
       extendedDetectors: extended,
       risk: raw['risk'] is Map ? RaspSessionRisk.fromWire(raw['risk']) : null,
       locationHeartbeat: RaspLocationHeartbeatStatus.fromWire(raw['locationHeartbeat']),
+      remoteConfigVersion: (raw['remoteConfigVersion'] as num?)?.toInt(),
+      remoteConfigStatus: RaspRemoteConfigStatus.fromWire(raw['remoteConfigStatus']),
     );
   }
 
@@ -797,6 +876,8 @@ class RaspDetectorDescriptor {
     'otp_forwarding_risk': RaspDetectorDescriptor(DetectorType.custom, ThreatCategory.privacyScreen, DetectionSeverity.medium, 'OTP Forwarding Risk (hint)'),
     'remote_control_app': RaspDetectorDescriptor(DetectorType.riskyApp, ThreatCategory.privacyScreen, DetectionSeverity.high, 'Remote Control App'),
     'screen_sharing_risk': RaspDetectorDescriptor(DetectorType.screenshot, ThreatCategory.privacyScreen, DetectionSeverity.high, 'Screen Sharing During App Use'),
+    // Task 10.0 signed remote configuration
+    'remote_config_rejected': RaspDetectorDescriptor(DetectorType.tamper, ThreatCategory.appIntegrity, DetectionSeverity.high, 'Remote Configuration Rejected'),
   };
 }
 

@@ -14,6 +14,12 @@ public typealias RaspLocationSnapshot = com.shieldsdk.rasp.RaspLocationSnapshot
 // (RaspLeanState.locationHeartbeat; interval: RaspLeanConfig.locationHeartbeatIntervalMillis).
 public typealias RaspLocationHeartbeatStatus = com.shieldsdk.rasp.RaspLocationHeartbeatStatus
 
+// Task 10.0: signed remote configuration (RaspLeanConfig.remoteConfigEnabled,
+// remoteManagedDetectors, remoteConfigPollMinutes; RaspLeanState.remoteConfigVersion /
+// remoteConfigStatus; RaspLeanSession.refreshRemoteConfigNow()).
+public typealias RaspRemoteConfigStatus = com.shieldsdk.rasp.RaspRemoteConfigStatus
+public typealias RaspRemoteConfig = com.shieldsdk.rasp.RaspRemoteConfig
+
 // Task 8.1: session risk and transaction API. Call them on RaspLeanSession
 // (reportSession, reportTransaction, signTransaction, currentRisk,
 // setHighRiskTransactionMode) with RaspLeanConfig.sessionRiskScoring = true —

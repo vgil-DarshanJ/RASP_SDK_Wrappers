@@ -169,6 +169,10 @@ internal class RaspSecurityChannelHandler(
                 leanSession?.refreshNow()
                 result.success(leanSession != null)
             }
+            "refreshLeanRemoteConfig" -> {
+                leanSession?.refreshRemoteConfigNow()
+                result.success(leanSession != null)
+            }
             "disposeLeanSession" -> {
                 leanSession?.dispose()
                 leanSession = null
@@ -1705,6 +1709,11 @@ internal class RaspSecurityChannelHandler(
             stepUpThreshold = (values["stepUpThreshold"] as? Number)?.toInt(),
             highRiskTransactionMode = enabled("highRiskTransactionMode"),
             accountHashSalt = values["accountHashSalt"] as? String,
+            malwareReputationRefreshHours = (values["malwareReputationRefreshHours"] as? Number)?.toInt() ?: 24,
+            remoteConfigEnabled = enabled("remoteConfigEnabled"),
+            remoteManagedDetectors = strings("remoteManagedDetectors").toSet(),
+            remoteConfigPollMinutes = (values["remoteConfigPollMinutes"] as? Number)?.toInt() ?: 15,
+            remoteConfigPublicKey = values["remoteConfigPublicKey"] as? String,
         )
     }
 
@@ -1727,6 +1736,8 @@ internal class RaspSecurityChannelHandler(
                     "cleared" to heartbeat.cleared,
                 )
             },
+            "remoteConfigVersion" to state.remoteConfigVersion,
+            "remoteConfigStatus" to state.remoteConfigStatus.name,
         )
         mainHandler.post { leanStateSink?.success(wire) }
     }
