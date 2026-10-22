@@ -21,6 +21,15 @@ buildscript {
     }
 }
 
+// The engine (android-core) this module binds to. Same switch as the Flutter
+// plugin: a plain version ("1.1.0") resolves from JitPack; "<v>-local" from
+// mavenLocal (engine published from rashield-sdk-publish for engine work).
+def raspEngineVersion = (project.findProperty("raspEngineVersion") ?: "1.1.0").toString()
+def raspEngineDependency = raspEngineVersion.endsWith("-local") ?
+    "com.shieldsdk.rasp:android-core:${raspEngineVersion}" :
+    "com.github.vgil-DarshanJ:RASP_SDK_1:v${raspEngineVersion}"
+def raspPackageVersion = new groovy.json.JsonSlurper().parse(file("${projectDir}/../package.json")).version
+
 def getExtOrDefault(name, defaultValue) {
     return rootProject.ext.has(name) ? rootProject.ext.get(name) : defaultValue
 }
@@ -61,6 +70,8 @@ android {
         minSdkVersion Math.max(23, getExtOrDefault("minSdkVersion", 24) as int)
         targetSdkVersion getExtOrDefault("targetSdkVersion", 35)
         buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString()
+        buildConfigField "String", "RASP_ENGINE_VERSION", "\"${raspEngineVersion}\""
+        buildConfigField "String", "RASP_RN_VERSION", "\"${raspPackageVersion}\""
         consumerProguardFiles "consumer-rules.pro"
     }
 
@@ -117,6 +128,7 @@ rootProject.allprojects { p ->
 repositories {
     google()
     mavenCentral()
+    mavenLocal()
     maven {
         url "https://jitpack.io"
         content { includeGroup "com.github.vgil-DarshanJ" }
@@ -128,5 +140,5 @@ dependencies {
     // The shared detection engine — root/Frida/hook/tamper/MITM/overlay and
     // every other detector, plus the HMAC-signed event shipper. `api` so an
     // app can also call com.shieldsdk.rasp.* directly from its own Kotlin.
-    api "com.github.vgil-DarshanJ:RASP_SDK_1:v1.1.0"
+    api raspEngineDependency
 }

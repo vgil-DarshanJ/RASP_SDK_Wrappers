@@ -24,6 +24,8 @@ export interface Spec extends TurboModule {
   refreshNow(): void;
   getState(): Promise<Object | null>;
   setLocation(location: Object | null): void;
+  setServerTime(serverTimeMillis: number): void;
+  refreshRemoteConfigNow(): void;
 
   // ── Event shipping credential (credential.json from the dashboard) ──
   configureCredential(credentialJson: string, persist: boolean): Promise<boolean>;
@@ -35,6 +37,17 @@ export interface Spec extends TurboModule {
   runCheck(detectorId: string): Promise<Object>;
   scanAll(): Promise<Array<Object>>;
   selfTest(): Promise<Object>;
+
+  // ── Session risk / fraud (needs sessionRiskScoring in the config) ──
+  setHighRiskTransactionMode(enabled: boolean): void;
+  reportSession(accountId: string, sessionId: string, event: string): Promise<Object>;
+  reportTransaction(
+    amount: string,
+    currency: string,
+    beneficiaryId: string,
+    channel: string,
+  ): Promise<Object>;
+  signTransaction(amount: string, currency: string, beneficiaryId: string): Promise<Object>;
 
   // ── Direct controls ──
   setScreenshotProtection(enabled: boolean): Promise<boolean | null>;

@@ -15,13 +15,13 @@ import com.facebook.react.bridge.ReadableMap
 abstract class NativeRaspShieldSpec(context: ReactApplicationContext) :
     ReactContextBaseJavaModule(context) {
 
-    override fun getName(): String = NAME
-
     @ReactMethod abstract fun startSession(config: ReadableMap, promise: Promise)
     @ReactMethod abstract fun stopSession(promise: Promise)
     @ReactMethod abstract fun refreshNow()
     @ReactMethod abstract fun getState(promise: Promise)
     @ReactMethod abstract fun setLocation(location: ReadableMap?)
+    @ReactMethod abstract fun setServerTime(serverTimeMillis: Double)
+    @ReactMethod abstract fun refreshRemoteConfigNow()
 
     @ReactMethod abstract fun configureCredential(credentialJson: String, persist: Boolean, promise: Promise)
     @ReactMethod abstract fun restoreCredential(promise: Promise)
@@ -32,6 +32,11 @@ abstract class NativeRaspShieldSpec(context: ReactApplicationContext) :
     @ReactMethod abstract fun scanAll(promise: Promise)
     @ReactMethod abstract fun selfTest(promise: Promise)
 
+    @ReactMethod abstract fun setHighRiskTransactionMode(enabled: Boolean)
+    @ReactMethod abstract fun reportSession(accountId: String, sessionId: String, event: String, promise: Promise)
+    @ReactMethod abstract fun reportTransaction(amount: String, currency: String, beneficiaryId: String, channel: String, promise: Promise)
+    @ReactMethod abstract fun signTransaction(amount: String, currency: String, beneficiaryId: String, promise: Promise)
+
     @ReactMethod abstract fun setScreenshotProtection(enabled: Boolean, promise: Promise)
     @ReactMethod abstract fun clearClipboard(promise: Promise)
     @ReactMethod abstract fun getSdkInfo(promise: Promise)
@@ -39,7 +44,4 @@ abstract class NativeRaspShieldSpec(context: ReactApplicationContext) :
     @ReactMethod abstract fun addListener(eventName: String)
     @ReactMethod abstract fun removeListeners(count: Double)
 
-    companion object {
-        const val NAME = "RaspShield"
-    }
 }

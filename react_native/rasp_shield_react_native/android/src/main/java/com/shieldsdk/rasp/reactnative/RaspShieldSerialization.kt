@@ -6,10 +6,15 @@ import com.facebook.react.bridge.ReadableType
 import com.facebook.react.bridge.WritableArray
 import com.facebook.react.bridge.WritableMap
 import com.shieldsdk.rasp.RaspCheckResult
+import com.shieldsdk.rasp.RaspLocationHeartbeatStatus
+import com.shieldsdk.rasp.RaspRiskAssessment
+import com.shieldsdk.rasp.RaspSessionReport
+import com.shieldsdk.rasp.RaspSignedTransaction
+import com.shieldsdk.rasp.RaspTransactionReport
 import com.shieldsdk.rasp.RaspShieldCore
-import com.shieldsdk.rasp.nativeshield.RaspLeanConfig
-import com.shieldsdk.rasp.nativeshield.RaspLeanState
-import com.shieldsdk.rasp.nativeshield.RaspLocationSnapshot
+import com.shieldsdk.rasp.RaspLeanConfig
+import com.shieldsdk.rasp.RaspLeanState
+import com.shieldsdk.rasp.RaspLocationSnapshot
 
 /**
  * Native ⇄ JS conversion. Shapes match `src/types.ts` exactly; the JS
@@ -51,8 +56,60 @@ internal object RaspShieldSerialization {
         putMap("extendedDetectors", Arguments.createMap().also { map ->
             state.extendedDetectors.forEach { (id, r) -> map.putMap(id, result(r)) }
         })
+        state.risk?.let { putMap("risk", risk(it)) } ?: putNull("risk")
+        state.locationHeartbeat?.let { putMap("locationHeartbeat", heartbeat(it)) } ?: putNull("locationHeartbeat")
+        state.remoteConfigVersion?.let { putDouble("remoteConfigVersion", it.toDouble()) } ?: putNull("remoteConfigVersion")
+        putString("remoteConfigStatus", state.remoteConfigStatus.name)
         putDouble("observedAtMillis", System.currentTimeMillis().toDouble())
     }
+
+    fun risk(r: RaspRiskAssessment): WritableMap = Arguments.createMap().apply {
+        r.score?.let { putInt("score", it) } ?: putNull("score")
+        r.maxPossibleScore?.let { putInt("maxPossibleScore", it) } ?: putNull("maxPossibleScore")
+        putString("verdict", r.verdict.name)
+        putBoolean("stepUpRecommended", r.stepUpRecommended)
+        putArray("firedGroups", strings(r.firedGroups))
+        putArray("undecidedGroups", strings(r.undecidedGroups))
+        putArray("contributingDetectors", strings(r.contributingDetectors))
+        putBoolean("highRiskTransactionMode", r.highRiskTransactionMode)
+        putDouble("evaluatedAtMillis", r.evaluatedAtMillis.toDouble())
+    }
+
+    private fun heartbeat(h: RaspLocationHeartbeatStatus): WritableMap = Arguments.createMap().apply {
+        putDouble("atMillis", h.atMillis.toDouble())
+        putString("outcome", h.outcome.name)
+        putString("detail", h.detail)
+        putBoolean("cleared", h.cleared)
+    }
+
+    fun sessionReport(r: RaspSessionReport): WritableMap = Arguments.createMap().apply {
+        putString("accountHash", r.accountHash)
+        putString("sessionHash", r.sessionHash)
+        putString("event", r.event.wire)
+        putMap("risk", risk(r.risk))
+        putBoolean("sentToBackend", r.sentToBackend)
+    }
+
+    fun signedTransaction(t: RaspSignedTransaction): WritableMap = Arguments.createMap().apply {
+        putString("canonical", t.canonical)
+        putString("signatureBase64", t.signatureBase64)
+        putDouble("counter", t.counter.toDouble())
+        putString("nonce", t.nonce)
+        putDouble("timestampMillis", t.timestampMillis.toDouble())
+        putString("beneficiaryHash", t.beneficiaryHash)
+        putString("bindingSha256", t.bindingSha256)
+        putString("deviceKeyId", t.deviceKeyId)
+        putMap("risk", risk(t.risk))
+    }
+
+    fun transactionReport(r: RaspTransactionReport): WritableMap = Arguments.createMap().apply {
+        putMap("transaction", signedTransaction(r.transaction))
+        putString("channel", r.channel)
+        putBoolean("sentToBackend", r.sentToBackend)
+    }
+
+    private fun strings(values: Collection<String>): WritableArray =
+        Arguments.createArray().also { a -> values.forEach { a.pushString(it) } }
 
     fun selfTest(report: RaspShieldCore.RaspSelfTestReport): WritableMap = Arguments.createMap().apply {
         putArray("results", results(report.results))
@@ -74,15 +131,22 @@ internal object RaspShieldSerialization {
      */
     fun config(map: ReadableMap): RaspLeanConfig {
         val d = RaspLeanConfig()
-        fun b(key: String, default: Boolean) =
-            if (map.hasKey(key) && map.getType(key) == ReadableType.Boolean) map.getBoolean(key) else default
+        fun has(key: String, type: ReadableType) = map.hasKey(key) && map.getType(key) == type
+        fun b(key: String, default: Boolean) = if (has(key, ReadableType.Boolean)) map.getBoolean(key) else default
+        fun str(key: String): String? =
+            if (has(key, ReadableType.String)) map.getString(key)?.takeIf { it.isNotBlank() } else null
         fun ms(key: String, default: Long) =
-            if (map.hasKey(key) && map.getType(key) == ReadableType.Number) {
-                map.getDouble(key).toLong().coerceAtLeast(MIN_INTERVAL_MILLIS)
-            } else default
-        val cert = if (map.hasKey("expectedSigningCertSha256") &&
-            map.getType("expectedSigningCertSha256") == ReadableType.String
-        ) map.getString("expectedSigningCertSha256")?.takeIf { it.isNotBlank() } else null
+            if (has(key, ReadableType.Number)) map.getDouble(key).toLong().coerceAtLeast(MIN_INTERVAL_MILLIS) else default
+        fun long(key: String): Long? = if (has(key, ReadableType.Number)) map.getDouble(key).toLong() else null
+        fun int(key: String, default: Int) = if (has(key, ReadableType.Number)) map.getDouble(key).toInt() else default
+        fun intOrNull(key: String): Int? = if (has(key, ReadableType.Number)) map.getDouble(key).toInt() else null
+        fun list(key: String, default: List<String>): List<String> {
+            if (!has(key, ReadableType.Array)) return default
+            val array = map.getArray(key) ?: return default
+            return (0 until array.size()).mapNotNull { i ->
+                if (array.getType(i) == ReadableType.String) array.getString(i)?.takeIf { it.isNotBlank() } else null
+            }
+        }
 
         return RaspLeanConfig(
             screenshotProtection = b("screenshotProtection", d.screenshotProtection),
@@ -106,16 +170,60 @@ internal object RaspShieldSerialization {
             tamperDetection = b("tamperDetection", d.tamperDetection),
             untrustedInstallSourceDetection = b("untrustedInstallSourceDetection", d.untrustedInstallSourceDetection),
             repackagingDetection = b("repackagingDetection", d.repackagingDetection),
-            expectedSigningCertSha256 = cert,
+            expectedSigningCertSha256 = str("expectedSigningCertSha256"),
+            expectedInstallers = list("expectedInstallers", d.expectedInstallers),
+            expectedClassesDexSha256 = str("expectedClassesDexSha256"),
+            expectedResourcesArscSha256 = str("expectedResourcesArscSha256"),
             vpnDetection = b("vpnDetection", d.vpnDetection),
             mitmDetection = b("mitmDetection", d.mitmDetection),
+            certificatePinHost = str("certificatePinHost"),
+            certificatePins = list("certificatePins", d.certificatePins),
             highRiskIpDetection = b("highRiskIpDetection", d.highRiskIpDetection),
             overlayDetection = b("overlayDetection", d.overlayDetection),
             accessibilityDetection = b("accessibilityDetection", d.accessibilityDetection),
             externalDisplayDetection = b("externalDisplayDetection", d.externalDisplayDetection),
             screenshotEventDetection = b("screenshotEventDetection", d.screenshotEventDetection),
+            mockLocationDetection = b("mockLocationDetection", d.mockLocationDetection),
+            timeSpoofingDetection = b("timeSpoofingDetection", d.timeSpoofingDetection),
+            unsafeWifiDetection = b("unsafeWifiDetection", d.unsafeWifiDetection),
+            screenRecordingDetection = b("screenRecordingDetection", d.screenRecordingDetection),
+            serverTimeMillis = long("serverTimeMillis"),
+            vishingCallDetection = b("vishingCallDetection", d.vishingCallDetection),
+            simChangeDetection = b("simChangeDetection", d.simChangeDetection),
+            thirdPartyKeyboardDetection = b("thirdPartyKeyboardDetection", d.thirdPartyKeyboardDetection),
+            taskHijackDetection = b("taskHijackDetection", d.taskHijackDetection),
+            trustedKeyboardPackages = list("trustedKeyboardPackages", d.trustedKeyboardPackages),
+            deviceStateAttestationDetection = b("deviceStateAttestationDetection", d.deviceStateAttestationDetection),
+            maxSecurityPatchAgeDays = intOrNull("maxSecurityPatchAgeDays"),
+            malwareReputationDetection = b("malwareReputationDetection", d.malwareReputationDetection),
+            malwareReputationListJson = str("malwareReputationListJson"),
+            malwareReputationPublicKey = str("malwareReputationPublicKey"),
+            malwareReputationAutoUpdate = b("malwareReputationAutoUpdate", d.malwareReputationAutoUpdate),
+            malwareReputationRefreshHours = int("malwareReputationRefreshHours", d.malwareReputationRefreshHours),
+            useEvidenceEnvelope = b("useEvidenceEnvelope", d.useEvidenceEnvelope),
             pollIntervalMillis = ms("pollIntervalMillis", d.pollIntervalMillis),
             heartbeatIntervalMillis = ms("heartbeatIntervalMillis", d.heartbeatIntervalMillis),
+            otpInterceptionDetection = b("otpInterceptionDetection", d.otpInterceptionDetection),
+            smsReaderAbuseDetection = b("smsReaderAbuseDetection", d.smsReaderAbuseDetection),
+            otpForwardingDetection = b("otpForwardingDetection", d.otpForwardingDetection),
+            remoteControlAppDetection = b("remoteControlAppDetection", d.remoteControlAppDetection),
+            screenSharingDetection = b("screenSharingDetection", d.screenSharingDetection),
+            notificationListenerAllowlist = list("notificationListenerAllowlist", d.notificationListenerAllowlist),
+            smsAppAllowlist = list("smsAppAllowlist", d.smsAppAllowlist),
+            autoForwardPackages = list("autoForwardPackages", d.autoForwardPackages),
+            remoteControlListJson = str("remoteControlListJson"),
+            remoteControlListPublicKey = str("remoteControlListPublicKey"),
+            sessionRiskScoring = b("sessionRiskScoring", d.sessionRiskScoring),
+            riskMediumThreshold = int("riskMediumThreshold", d.riskMediumThreshold),
+            riskHighThreshold = int("riskHighThreshold", d.riskHighThreshold),
+            stepUpThreshold = intOrNull("stepUpThreshold"),
+            highRiskTransactionMode = b("highRiskTransactionMode", d.highRiskTransactionMode),
+            accountHashSalt = str("accountHashSalt"),
+            locationHeartbeatIntervalMillis = ms("locationHeartbeatIntervalMillis", d.locationHeartbeatIntervalMillis),
+            remoteConfigEnabled = b("remoteConfigEnabled", d.remoteConfigEnabled),
+            remoteManagedDetectors = list("remoteManagedDetectors", emptyList()).toSet(),
+            remoteConfigPollMinutes = int("remoteConfigPollMinutes", d.remoteConfigPollMinutes),
+            remoteConfigPublicKey = str("remoteConfigPublicKey"),
         )
     }
 
@@ -131,6 +239,10 @@ internal object RaspShieldSerialization {
             longitude = lng,
             accuracyMeters = num("accuracyMeters")?.takeIf { it.isFinite() && it >= 0 },
             capturedAtMillis = num("capturedAtMillis")?.toLong() ?: System.currentTimeMillis(),
+            isMock = if (map.hasKey("isMock") && map.getType("isMock") == ReadableType.Boolean) map.getBoolean("isMock") else null,
+            provider = if (map.hasKey("provider") && map.getType("provider") == ReadableType.String) map.getString("provider") else null,
+            shareWithBackend = map.hasKey("shareWithBackend") && map.getType("shareWithBackend") == ReadableType.Boolean &&
+                map.getBoolean("shareWithBackend"),
         )
     }
 

@@ -8,13 +8,21 @@
  */
 import { NativeEventEmitter, Platform } from 'react-native';
 import NativeRaspShield, { type Spec } from './specs/NativeRaspShield';
-import type { DetectionResult, RaspShieldErrorEvent, RaspLeanState } from './types';
+import type {
+  DetectionResult,
+  RaspLeanState,
+  RaspLocationHeartbeatStatus,
+  RaspRiskAssessment,
+  RaspShieldErrorEvent,
+  RemoteConfigStatus,
+  RiskVerdict,
+} from './types';
 
 export const STATE_EVENT = 'RaspShield.stateChanged';
 export const ERROR_EVENT = 'RaspShield.error';
 
-/** Kept in sync with package.json by `scripts/sync-shared-session.js --check`. */
-export const SDK_VERSION = '1.0.0';
+/** Kept equal to package.json's version (checked by the Jest suite). */
+export const SDK_VERSION = '1.1.0';
 
 let nativeOverride: Spec | null | undefined;
 
@@ -22,6 +30,16 @@ let nativeOverride: Spec | null | undefined;
 export function __setNativeModuleForTests(module: Spec | null | undefined): void {
   nativeOverride = module;
   emitter = null;
+}
+
+interface EmitterLike {
+  addListener(event: string, listener: (payload: unknown) => void): { remove(): void };
+}
+let emitterOverride: EmitterLike | null = null;
+
+/** Test seam — replaces the NativeEventEmitter so tests can fire events. */
+export function __setEmitterForTests(e: EmitterLike | null): void {
+  emitterOverride = e;
 }
 
 export function nativeModule(): Spec | null {
@@ -45,7 +63,8 @@ export function unavailableReason(): string {
 
 let emitter: NativeEventEmitter | null = null;
 
-function eventEmitter(): NativeEventEmitter | null {
+function eventEmitter(): EmitterLike | null {
+  if (emitterOverride) return emitterOverride;
   const module = nativeModule();
   if (!module) return null;
   if (!emitter) {
@@ -125,7 +144,53 @@ export function normalizeState(raw: unknown): RaspLeanState {
     clipboardActive: boolOrNull(s.clipboardActive),
     clipboardChangeCount: numOrZero(s.clipboardChangeCount),
     extendedDetectors,
+    risk: s.risk ? normalizeRisk(s.risk) : null,
+    locationHeartbeat: s.locationHeartbeat ? normalizeHeartbeat(s.locationHeartbeat) : null,
+    remoteConfigVersion: typeof s.remoteConfigVersion === 'number' ? s.remoteConfigVersion : null,
+    remoteConfigStatus: (REMOTE_STATUSES.has(String(s.remoteConfigStatus))
+      ? s.remoteConfigStatus
+      : 'OFF') as RemoteConfigStatus,
     observedAtMillis: numOrZero(s.observedAtMillis),
+  };
+}
+
+const VERDICTS = new Set(['LOW', 'MEDIUM', 'HIGH', 'UNKNOWN']);
+const REMOTE_STATUSES = new Set(['OFF', 'UNAVAILABLE', 'WAITING', 'APPLIED', 'REJECTED', 'EXPIRED']);
+const HEARTBEAT_OUTCOMES = new Set(['DELIVERED', 'NOT_DELIVERED', 'REJECTED', 'NOT_CONFIGURED']);
+
+function strings(v: unknown): string[] {
+  return Array.isArray(v) ? v.map(String) : [];
+}
+
+function numOrNull(v: unknown): number | null {
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
+
+export function normalizeRisk(raw: unknown): RaspRiskAssessment {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  return {
+    score: numOrNull(r.score),
+    maxPossibleScore: numOrNull(r.maxPossibleScore),
+    // An unknown verdict is never widened to LOW.
+    verdict: (VERDICTS.has(String(r.verdict)) ? r.verdict : 'UNKNOWN') as RiskVerdict,
+    stepUpRecommended: r.stepUpRecommended === true,
+    firedGroups: strings(r.firedGroups),
+    undecidedGroups: strings(r.undecidedGroups),
+    contributingDetectors: strings(r.contributingDetectors),
+    highRiskTransactionMode: r.highRiskTransactionMode === true,
+    evaluatedAtMillis: numOrZero(r.evaluatedAtMillis),
+  };
+}
+
+function normalizeHeartbeat(raw: unknown): RaspLocationHeartbeatStatus {
+  const h = (raw ?? {}) as Record<string, unknown>;
+  return {
+    atMillis: numOrZero(h.atMillis),
+    outcome: (HEARTBEAT_OUTCOMES.has(String(h.outcome))
+      ? h.outcome
+      : 'NOT_DELIVERED') as RaspLocationHeartbeatStatus['outcome'],
+    detail: String(h.detail ?? ''),
+    cleared: h.cleared === true,
   };
 }
 

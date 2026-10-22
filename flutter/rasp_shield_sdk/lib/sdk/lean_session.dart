@@ -837,7 +837,7 @@ class RaspDetectorDescriptor {
     'device_binding': RaspDetectorDescriptor(DetectorType.custom, ThreatCategory.deviceIntegrity, DetectionSeverity.high, 'Device Binding'),
     'clone': RaspDetectorDescriptor(DetectorType.custom, ThreatCategory.deviceIntegrity, DetectionSeverity.high, 'App Clone / Dual Space'),
     'developer_mode': RaspDetectorDescriptor(DetectorType.custom, ThreatCategory.deviceIntegrity, DetectionSeverity.low, 'Developer Mode'),
-    'device_lock_missing': RaspDetectorDescriptor(DetectorType.custom, ThreatCategory.deviceIntegrity, DetectionSeverity.medium, 'Device Lock'),
+    'device_lock_missing': RaspDetectorDescriptor(DetectorType.custom, ThreatCategory.deviceIntegrity, DetectionSeverity.low, 'Device Lock'),
     'secure_hardware_unavailable': RaspDetectorDescriptor(DetectorType.custom, ThreatCategory.deviceIntegrity, DetectionSeverity.low, 'Hardware-Backed Keystore'),
     'device_fingerprint': RaspDetectorDescriptor(DetectorType.custom, ThreatCategory.deviceIntegrity, DetectionSeverity.medium, 'Device Fingerprint'),
     // Runtime protection

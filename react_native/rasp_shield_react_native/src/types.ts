@@ -1,8 +1,7 @@
 /**
- * Public types — kept field-for-field identical to the Flutter SDK
- * (`lib/sdk/lean_session.dart`) and the Android Native SDK
- * (`RaspLeanSession.kt`), so all three SDKs share one mental model and
- * ship byte-identical events to the dashboard.
+ * Public types — field-for-field identical to the Flutter SDK
+ * (`lib/sdk/lean_session.dart`) and the Android Native SDK, so all three
+ * SDKs share one mental model and ship the same events to the dashboard.
  */
 
 /**
@@ -39,12 +38,11 @@ export interface DetectionResult {
   observedAtMillis: number;
 }
 
-/** Every detector id the SDK can report. Identical across all three SDKs
- *  and the backend's `detectors/severity.ts`. */
+/** The 43 on-device detector ids. Identical across all SDKs and the
+ *  backend's `detectors/severity.ts`. */
 export type DetectorId =
-  // Original lean controls
+  // Basic controls
   | 'screenshot_protection'
-  | 'screenshot_event'
   | 'usb_connection'
   | 'adb_enabled'
   | 'clipboard_protection'
@@ -57,6 +55,11 @@ export type DetectorId =
   | 'device_lock_missing'
   | 'secure_hardware_unavailable'
   | 'device_fingerprint'
+  | 'device_state_attestation'
+  | 'sim_change'
+  | 'mock_location'
+  | 'time_spoofing'
+  | 'malware_reputation'
   // Runtime protection
   | 'frida'
   | 'debugger'
@@ -65,34 +68,43 @@ export type DetectorId =
   | 'risky_app'
   // App integrity
   | 'tamper'
-  | 'untrusted_install_source'
   | 'repackage'
-  // Network
+  | 'untrusted_install_source'
+  | 'task_hijack'
+  | 'remote_config_rejected'
+  // Network security
   | 'vpn'
   | 'mitm'
   | 'high_risk_ip'
+  | 'unsafe_wifi'
   // Privacy & screen
   | 'overlay'
   | 'accessibility'
   | 'external_display'
-  // One-shot only (RaspShieldCore.check) — not part of the lean session
-  | 'app_intelligence';
+  | 'screenshot_event'
+  | 'screen_recording'
+  | 'vishing_call'
+  | 'third_party_keyboard'
+  | 'remote_control_app'
+  | 'screen_sharing_risk'
+  | 'otp_interception_risk'
+  | 'sms_reader_abuse'
+  | 'otp_forwarding_risk';
 
 /**
- * Which detectors a session runs. Every detector defaults to `false` —
- * nothing activates unless you ask for it.
+ * Which detectors a session runs and how. Every detector defaults to
+ * `false` — nothing activates unless you ask for it. Names match the
+ * Kotlin `RaspLeanConfig` exactly.
  */
 export interface RaspLeanConfig {
-  // Original lean controls
+  // Basic controls
   /** Blocks screenshots & screen recording of your app (FLAG_SECURE). */
   screenshotProtection?: boolean;
   usbDetection?: boolean;
   adbDetection?: boolean;
   /** Watches clipboard changes (count only, never content). */
   clipboardProtection?: boolean;
-  /** With clipboardProtection: clears the clipboard on every copy.
-   *  Default `true`. Changes real app behavior — users cannot paste
-   *  anything copied while your app is running. */
+  /** With clipboardProtection: clears the clipboard on every copy (default `true`). */
   clipboardAutoClear?: boolean;
 
   // Device integrity
@@ -104,6 +116,22 @@ export interface RaspLeanConfig {
   deviceLockCheck?: boolean;
   secureHardwareCheck?: boolean;
   deviceFingerprintCheck?: boolean;
+  deviceStateAttestationDetection?: boolean;
+  /** Reject a security patch older than this many days. */
+  maxSecurityPatchAgeDays?: number;
+  /** Needs the READ_PHONE_STATE permission. */
+  simChangeDetection?: boolean;
+  /** Needs a location from {@link RaspLeanSession.setLocation}. */
+  mockLocationDetection?: boolean;
+  timeSpoofingDetection?: boolean;
+  /** A trusted server time, e.g. from an HTTP `Date` header. */
+  serverTimeMillis?: number;
+  malwareReputationDetection?: boolean;
+  malwareReputationListJson?: string;
+  malwareReputationPublicKey?: string;
+  /** Fetch the signed list from the backend (needs a credential). */
+  malwareReputationAutoUpdate?: boolean;
+  malwareReputationRefreshHours?: number;
 
   // Runtime protection
   fridaDetection?: boolean;
@@ -117,31 +145,97 @@ export interface RaspLeanConfig {
   untrustedInstallSourceDetection?: boolean;
   repackagingDetection?: boolean;
   /** Your release signing certificate SHA-256 (with or without `:`).
-   *  Required for `repackagingDetection` to give a real verdict — without
-   *  it, `repackage` honestly reports UNAVAILABLE. */
+   *  Without it `tamper` reports UNKNOWN and `repackage` UNAVAILABLE. */
   expectedSigningCertSha256?: string;
+  expectedInstallers?: string[];
+  expectedClassesDexSha256?: string;
+  expectedResourcesArscSha256?: string;
+  taskHijackDetection?: boolean;
 
   // Network
   vpnDetection?: boolean;
   mitmDetection?: boolean;
-  /** Calls the third-party `ipapi.co` API directly. Opt in only if you
-   *  accept that dependency. */
+  certificatePinHost?: string;
+  certificatePins?: string[];
+  /** Asks the platform backend (needs a credential). */
   highRiskIpDetection?: boolean;
+  unsafeWifiDetection?: boolean;
 
   // Privacy & screen
   overlayDetection?: boolean;
   accessibilityDetection?: boolean;
   externalDisplayDetection?: boolean;
-  /** A screenshot was actually taken (Android 14 / API 34+ only). */
+  /** A screenshot was actually taken (Android 14+, DETECT_SCREEN_CAPTURE). */
   screenshotEventDetection?: boolean;
+  screenRecordingDetection?: boolean;
+  /** Needs READ_PHONE_STATE. */
+  vishingCallDetection?: boolean;
+  thirdPartyKeyboardDetection?: boolean;
+  trustedKeyboardPackages?: string[];
+  remoteControlAppDetection?: boolean;
+  remoteControlListJson?: string;
+  remoteControlListPublicKey?: string;
+  screenSharingDetection?: boolean;
+  otpInterceptionDetection?: boolean;
+  notificationListenerAllowlist?: string[];
+  smsReaderAbuseDetection?: boolean;
+  smsAppAllowlist?: string[];
+  otpForwardingDetection?: boolean;
+  autoForwardPackages?: string[];
 
-  // Timing
-  /** How often every enabled detector is re-read. Default 4000 ms,
-   *  minimum 1000 ms. */
+  // Session risk
+  sessionRiskScoring?: boolean;
+  riskMediumThreshold?: number;
+  riskHighThreshold?: number;
+  stepUpThreshold?: number;
+  highRiskTransactionMode?: boolean;
+  /** `account_hash_salt` from the credential, when set explicitly. */
+  accountHashSalt?: string;
+
+  // Delivery
+  /** Device-key-signed evidence envelopes (default `true`). */
+  useEvidenceEnvelope?: boolean;
+  /** How often every enabled detector is re-read. Default 4000, minimum 1000. */
   pollIntervalMillis?: number;
-  /** How often a *standing* DETECTED threat re-confirms itself to the
-   *  dashboard. Unchanged SECURE results never re-ship. Default 20000 ms. */
+  /** How often a standing DETECTED threat re-confirms itself. Default 20000. */
   heartbeatIntervalMillis?: number;
+  locationHeartbeatIntervalMillis?: number;
+
+  // Signed remote configuration
+  remoteConfigEnabled?: boolean;
+  remoteManagedDetectors?: string[];
+  remoteConfigPollMinutes?: number;
+  remoteConfigPublicKey?: string;
+}
+
+export type RiskVerdict = 'LOW' | 'MEDIUM' | 'HIGH' | 'UNKNOWN';
+
+export interface RaspRiskAssessment {
+  /** `null` until the first evaluation (or when scoring is off). */
+  score: number | null;
+  maxPossibleScore: number | null;
+  verdict: RiskVerdict;
+  stepUpRecommended: boolean;
+  firedGroups: string[];
+  undecidedGroups: string[];
+  contributingDetectors: string[];
+  highRiskTransactionMode: boolean;
+  evaluatedAtMillis: number;
+}
+
+export type RemoteConfigStatus =
+  | 'OFF'
+  | 'UNAVAILABLE'
+  | 'WAITING'
+  | 'APPLIED'
+  | 'REJECTED'
+  | 'EXPIRED';
+
+export interface RaspLocationHeartbeatStatus {
+  atMillis: number;
+  outcome: 'DELIVERED' | 'NOT_DELIVERED' | 'REJECTED' | 'NOT_CONFIGURED';
+  detail: string;
+  cleared: boolean;
 }
 
 /**
@@ -157,22 +251,30 @@ export interface RaspLeanState {
   developerModeEnabled: boolean | null;
   clipboardActive: boolean | null;
   clipboardChangeCount: number;
-  /** Every detector beyond the original lean controls, keyed by detector
-   *  id — only present for ones you enabled. */
+  /** Every detector beyond the basic controls, keyed by detector id —
+   *  only present for ones you enabled. */
   extendedDetectors: Partial<Record<DetectorId, DetectionResult>>;
+  risk: RaspRiskAssessment | null;
+  locationHeartbeat: RaspLocationHeartbeatStatus | null;
+  remoteConfigVersion: number | null;
+  remoteConfigStatus: RemoteConfigStatus;
   /** When this snapshot was taken (device clock). 0 for the initial state. */
   observedAtMillis: number;
 }
 
 /** A location reading supplied entirely by your app — this SDK contains
- *  no location code and never requests location permission. Attached to
- *  DETECTED events only. */
+ *  no location code and never requests location permission. */
 export interface RaspLocationSnapshot {
   latitude: number;
   longitude: number;
   accuracyMeters?: number;
   /** When your app obtained the reading. Defaults to now. */
   capturedAtMillis?: number;
+  /** The fix's own mock flag, when you have it. */
+  isMock?: boolean;
+  provider?: string;
+  /** `true` only if the user opted in to sharing location with the backend. */
+  shareWithBackend?: boolean;
 }
 
 /** Contents of the `credential.json` downloaded from the dashboard. */
@@ -182,6 +284,37 @@ export interface RaspCredential {
   api_key: string;
   api_secret: string;
   ingestion_url: string;
+  account_hash_salt?: string;
+  reputation_public_key?: string;
+  config_public_key?: string;
+}
+
+export type RaspSessionEvent = 'login' | 'resume' | 'logout';
+
+export interface RaspSessionReport {
+  accountHash: string;
+  sessionHash: string;
+  event: RaspSessionEvent;
+  risk: RaspRiskAssessment;
+  sentToBackend: boolean;
+}
+
+export interface RaspSignedTransaction {
+  canonical: string;
+  signatureBase64: string;
+  counter: number;
+  nonce: string;
+  timestampMillis: number;
+  beneficiaryHash: string;
+  bindingSha256: string;
+  deviceKeyId: string;
+  risk: RaspRiskAssessment;
+}
+
+export interface RaspTransactionReport {
+  transaction: RaspSignedTransaction;
+  channel: string;
+  sentToBackend: boolean;
 }
 
 export interface RaspSelfTestReport {
@@ -196,7 +329,7 @@ export interface RaspSelfTestReport {
 export interface RaspSdkInfo {
   /** This React Native package's version. */
   sdkVersion: string;
-  /** The android_core engine's event-shipper version, when available. */
+  /** The android-core engine version this build binds to. */
   engineVersion: string | null;
   platform: string;
   /** `true` only when the native detection engine is linked and running
@@ -206,9 +339,8 @@ export interface RaspSdkInfo {
   apiLevel: number | null;
 }
 
-/** Emitted when the native layer hits a non-fatal fault — e.g. an event
- *  failed to ship (network down, HTTP 401) or a detector threw. The SDK
- *  never throws these into your app; subscribe to observe them. */
+/** Emitted when the native layer hits a non-fatal fault — e.g. a detector
+ *  threw. The SDK never throws these into your app; subscribe to observe. */
 export interface RaspShieldErrorEvent {
   source: string;
   message: string;

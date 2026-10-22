@@ -11,7 +11,7 @@
     "device_binding": "high",
     "device_change_velocity": "high",
     "device_fingerprint": "medium",
-    "device_lock_missing": "medium",
+    "device_lock_missing": "low",
     "device_state_attestation": "high",
     "emulator": "medium",
     "external_display": "medium",
