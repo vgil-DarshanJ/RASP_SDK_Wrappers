@@ -4,7 +4,7 @@ description: >
   Android detectors (root, emulator, Frida, debugger, hook, tamper,
   Play Integrity, device binding) registered by this plugin itself; the
   host app requires no manual Kotlin or MethodChannel wiring.
-version: 1.1.0-local
+version: 1.1.0
 homepage:
 
 environment:
