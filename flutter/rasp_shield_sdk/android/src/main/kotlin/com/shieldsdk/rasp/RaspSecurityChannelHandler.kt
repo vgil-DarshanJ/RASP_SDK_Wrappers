@@ -2,6 +2,7 @@ package com.shieldsdk.rasp
 
 import android.app.Activity
 import android.app.KeyguardManager
+import android.content.ClipboardManager
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -131,6 +132,24 @@ internal class RaspSecurityChannelHandler(
     private val playIntegrityBridge by lazy { RaspPlayIntegrityBridge(applicationContext) }
     private val usbAnalysis by lazy { RaspUsbAnalysis(applicationContext) }
     private val clipboardGuard by lazy { RaspClipboardGuard(applicationContext) }
+
+    /**
+     * Empties the clipboard. API 28+ uses clearPrimaryClip(): writing an
+     * empty clip with setPrimaryClip (what RaspClipboardGuard.clear() does)
+     * makes Android 13+ show its "Copied" pop-up, so every wipe looked like
+     * a copy to the user. Older versions fall back to the guard's clear().
+     */
+    private fun clearClipboardSilently(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return clipboardGuard.clear()
+        val manager = applicationContext.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            ?: return false
+        return try {
+            manager.clearPrimaryClip()
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
 
     /**
      * Called by [RaspShieldPlugin.onDetachedFromEngine] so a clipboard
@@ -550,7 +569,7 @@ internal class RaspSecurityChannelHandler(
             }
 
             "clearClipboard" -> {
-                result.success(clipboardGuard.clear())
+                result.success(clearClipboardSilently())
             }
 
             "getClipboardEvidence" -> {

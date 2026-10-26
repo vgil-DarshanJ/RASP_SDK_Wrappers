@@ -7,8 +7,11 @@ React Native plugin for RASP Shield. It holds no detection logic: it binds the s
 ## Install
 
 ```sh
-npm install rasp-shield-react-native      # autolinked, no manual Gradle edit
+npm install rasp-shield-react-native      # from a registry
+npm install --install-links ../path/to/rasp_shield_react_native   # from the unzipped SDK folder
 ```
+
+Use `--install-links` for a folder: it copies the plugin into `node_modules`. A plain link points outside your app, where Metro and TypeScript cannot find `react` / `react-native`. Autolinked either way, no manual Gradle edit.
 
 The engine comes from JitPack (added automatically). Pin another engine with `raspEngineVersion=1.1.0` in `gradle.properties`; `1.1.0-local` resolves from `mavenLocal`.
 

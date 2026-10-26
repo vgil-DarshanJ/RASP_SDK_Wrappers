@@ -2,13 +2,12 @@
   "name": "rasp-shield-react-native",
   "version": "1.1.0",
   "description": "RASP Shield for React Native - runtime application self-protection backed by the shared android-core engine: the same 43 on-device detectors, 5-state result contract and signed event shipping as the Flutter and Android Native SDKs. Android today; iOS is next.",
-  "main": "lib/index.js",
-  "types": "lib/index.d.ts",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
   "react-native": "src/index.ts",
   "source": "src/index.ts",
   "files": [
     "src",
-    "lib",
     "android",
     "react-native.config.js",
     "README.md",
@@ -20,8 +19,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "jest",
-    "prepack": "npm run build"
+    "test": "jest"
   },
   "keywords": [
     "react-native",
